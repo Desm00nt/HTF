@@ -1,0 +1,43 @@
+{
+    "itemGroup.howtofish": "How To Fish",
+    "generator.howtofish.fishing": "How to Fish (Бесконечный океан)",
+
+    "item.howtofish.fishing_rod": "Удочка",
+    "item.howtofish.knife": "Нож",
+    "item.howtofish.radar": "Радар",
+    "item.howtofish.beer": "Пиво",
+    "item.howtofish.empty_can": "Пустая банка",
+    "item.howtofish.ruble_coin": "Рублёвая монета",
+    "item.howtofish.spider_crab_shell": "Панцирь краба-паука",
+    "item.howtofish.anchovy_meat": "Мясо анчоуса",
+    "item.howtofish.herring_meat": "Мясо сельди",
+    "item.howtofish.crab_meat": "Мясо краба",
+    "item.howtofish.shrimp_meat": "Мясо креветки",
+    "item.howtofish.lobster_meat": "Мясо лобстера",
+    "item.howtofish.pufferfish_meat": "Мясо рыбы-фугу",
+
+    "block.howtofish.lighthouse_lamp": "Лампа маяка",
+    "block.howtofish.lighthouse_bricks": "Кирпичи маяка",
+
+    "entity.howtofish.custom_fish": "Рыба",
+    "entity.howtofish.boss_fish": "Краб-паук",
+    "entity.howtofish.old_man": "Старый Сол, смотритель маяка",
+
+    "menu.howtofish.old_man_shop": "Магазин Старого Сола",
+
+    "message.howtofish.no_water": "Забрасывай удочку в воду!",
+    "message.howtofish.caught": "Ты поймал живую рыбу: %s! Добей её ножом.",
+    "message.howtofish.radar_locked": "Радар молчит. Сначала принеси Солу трофей босса.",
+    "message.howtofish.radar_need_boat": "Сядь в лодку, чтобы использовать радар.",
+    "message.howtofish.radar_coords": "Сигнал радара! Новый остров: X: %s Y: %s Z: %s",
+    "message.howtofish.boss_summoned": "Что-то огромное клюнуло на наживку...",
+    "message.howtofish.fed_fish": "Старый Сол благодарит тебя и даёт %s рублей!",
+    "message.howtofish.gave_beer": "Старый Сол выпивает пиво и отдаёт пустую банку. Отличная наживка для босса!",
+    "message.howtofish.trophy_turned_in": "Старый Сол осматривает панцирь и отмечает на радаре: X: %s Y: %s Z: %s",
+    "message.howtofish.buy_button": "%s - %s\u20BD",
+    "message.howtofish.bought": "Куплено за %s рублей.",
+    "message.howtofish.not_enough_money": "Недостаточно рублей!",
+    "message.howtofish.old_man_greeting0": "\u00A76Старый Сол: \u00A7fЭй! Принеси мне рыбы, и я заплачу рублями.",
+    "message.howtofish.old_man_greeting1": "\u00A76Старый Сол: \u00A7fНайдётся пивко для старого моряка? Отблагодарю сполна...",
+    "message.howtofish.old_man_greeting2": "\u00A76Старый Сол: \u00A7fЗа рифом прячется кое-что огромное. Принеси мне его панцирь, и я укажу курс."
+}
