@@ -23,6 +23,7 @@ public class OldManShopMenu extends AbstractContainerMenu {
     public static final List<ShopOffer> OFFERS = List.of(
             new ShopOffer(new ItemStack(ModItems.FISHING_ROD.get()), 3, "fishing_rod"),
             new ShopOffer(new ItemStack(ModItems.KNIFE.get()), 4, "knife"),
+            new ShopOffer(new ItemStack(ModItems.BAIT.get()), 15, "bait"),
             new ShopOffer(new ItemStack(ModItems.RADAR.get()), 10, "radar"),
             new ShopOffer(new ItemStack(ModItems.BEER.get()), 2, "beer")
     );

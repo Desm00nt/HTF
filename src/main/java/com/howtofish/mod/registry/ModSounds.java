@@ -15,6 +15,7 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> COIN = registerSound("coin");
     public static final RegistryObject<SoundEvent> FISH_FLOP = registerSound("fish_flop");
     public static final RegistryObject<SoundEvent> BOSS_ROAR = registerSound("boss_roar");
+    public static final RegistryObject<SoundEvent> BOSS_MUSIC = registerSound("boss_music");
 
     private static RegistryObject<SoundEvent> registerSound(String name) {
         ResourceLocation id = new ResourceLocation(HowToFishMod.MOD_ID, name);

@@ -14,6 +14,7 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
@@ -46,6 +47,12 @@ public class OldManEntity extends PathfinderMob {
             SynchedEntityData.defineId(OldManEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> EAT_TICKS =
             SynchedEntityData.defineId(OldManEntity.class, EntityDataSerializers.INT);
+    /** True when a player holding raw fish meat is standing close by. */
+    private static final EntityDataAccessor<Boolean> EYES_POPPING =
+            SynchedEntityData.defineId(OldManEntity.class, EntityDataSerializers.BOOLEAN);
+
+    /** Client-side smooth 0..1 amount used by the model to bulge the eyes. */
+    public float eyePopAmount;
 
     public OldManEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
@@ -71,6 +78,41 @@ public class OldManEntity extends PathfinderMob {
         super.defineSynchedData();
         this.entityData.define(EATING, false);
         this.entityData.define(EAT_TICKS, 0);
+        this.entityData.define(EYES_POPPING, false);
+    }
+
+    public boolean isEyesPopping() {
+        return this.entityData.get(EYES_POPPING);
+    }
+
+    /** Smoothed eye-pop amount for the renderer, including partial ticks. */
+    public float getEyePopAmount(float partialTicks) {
+        float target = isEyesPopping() ? 1.0f : 0.0f;
+        return Mth.clamp(this.eyePopAmount + (target - this.eyePopAmount) * partialTicks, 0.0f, 1.0f);
+    }
+
+    private void updateEyePopping() {
+        Player nearest = null;
+        for (Player player : this.level.players()) {
+            if (player.isAlive() && this.distanceToSqr(player) < 5.0 * 5.0
+                    && isHoldingFish(player)) {
+                nearest = player;
+                break;
+            }
+        }
+        boolean pop = nearest != null;
+        if (pop != isEyesPopping()) {
+            this.entityData.set(EYES_POPPING, pop);
+            if (pop) {
+                this.level.playSound(null, this.blockPosition(),
+                        net.minecraft.sounds.SoundEvents.GLASS_PLACE, SoundSource.NEUTRAL, 0.7f, 1.6f);
+            }
+        }
+    }
+
+    private static boolean isHoldingFish(Player player) {
+        return player.getMainHandItem().getItem() instanceof FishMeatItem
+                || player.getOffhandItem().getItem() instanceof FishMeatItem;
     }
 
     public boolean isEating() {
@@ -98,6 +140,17 @@ public class OldManEntity extends PathfinderMob {
             } else {
                 this.entityData.set(EAT_TICKS, ticks);
             }
+        }
+        if (!this.level.isClientSide) {
+            // Refresh the "player with fish nearby" detection a few times a second.
+            if (this.tickCount % 8 == 0) {
+                updateEyePopping();
+            }
+        } else {
+            // Smooth animation towards the synced target on the client.
+            float target = isEyesPopping() ? 1.0f : 0.0f;
+            this.eyePopAmount += (target - this.eyePopAmount) * 0.22f;
+            this.eyePopAmount = Mth.clamp(this.eyePopAmount, 0.0f, 1.0f);
         }
     }
 

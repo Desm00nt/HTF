@@ -41,6 +41,8 @@ public class EmptyCanItem extends Item {
             boss.setPos(blockHit.getBlockPos().getX() + 0.5, blockHit.getBlockPos().getY() + 1.0, blockHit.getBlockPos().getZ() + 0.5);
             level.addFreshEntity(boss);
             level.playSound(null, boss.blockPosition(), ModSounds.BOSS_ROAR.get(), SoundSource.HOSTILE, 1.5f, 0.8f);
+            // Epic royalty-free boss soundtrack (record source, stops on death).
+            level.playSound(null, player.blockPosition(), ModSounds.BOSS_MUSIC.get(), SoundSource.RECORDS, 1.5f, 1.0f);
             player.sendSystemMessage(Component.translatable("message.howtofish.boss_summoned"));
             stack.shrink(1);
         }

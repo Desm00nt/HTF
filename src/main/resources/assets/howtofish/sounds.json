@@ -1,0 +1,26 @@
+{
+    "old_man_eat": {
+        "subtitle": "subtitles.howtofish.old_man_eat",
+        "sounds": ["howtofish:old_man_eat"]
+    },
+    "old_man_talk": {
+        "subtitle": "subtitles.howtofish.old_man_talk",
+        "sounds": ["howtofish:old_man_talk"]
+    },
+    "coin": {
+        "subtitle": "subtitles.howtofish.coin",
+        "sounds": ["howtofish:coin"]
+    },
+    "fish_flop": {
+        "subtitle": "subtitles.howtofish.fish_flop",
+        "sounds": ["howtofish:fish_flop"]
+    },
+    "boss_roar": {
+        "subtitle": "subtitles.howtofish.boss_roar",
+        "sounds": ["howtofish:boss_roar"]
+    },
+    "boss_music": {
+        "stream": true,
+        "sounds": [{"name": "howtofish:boss_music", "volume": 1.0}]
+    }
+}

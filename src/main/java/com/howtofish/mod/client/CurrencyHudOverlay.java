@@ -26,7 +26,7 @@ public class CurrencyHudOverlay extends GuiComponent {
 
     @SubscribeEvent
     public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
-        if (!event.getOverlay().id().equals(VanillaGuiOverlay.PLAYER_HEALTH.id())) return;
+        if (!event.getOverlay().id().equals(VanillaGuiOverlay.EXPERIENCE_BAR.id())) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         PoseStack poseStack = event.getPoseStack();

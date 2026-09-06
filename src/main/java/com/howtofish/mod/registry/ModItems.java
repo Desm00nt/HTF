@@ -30,6 +30,9 @@ public class ModItems {
     public static final RegistryObject<Item> RADAR = ITEMS.register("radar",
             () -> new RadarItem(base().stacksTo(1)));
 
+    public static final RegistryObject<Item> BAIT = ITEMS.register("bait",
+            () -> new com.howtofish.mod.item.BaitItem(base().stacksTo(1)));
+
     public static final RegistryObject<Item> BEER = ITEMS.register("beer",
             () -> new BeerItem(base().stacksTo(8)));
 

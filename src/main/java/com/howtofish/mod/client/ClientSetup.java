@@ -45,5 +45,7 @@ public class ClientSetup {
         event.registerLayerDefinition(OldManModel.LAYER_LOCATION, OldManModel::createBodyLayer);
         event.registerLayerDefinition(FishModel.LAYER_LOCATION, FishModel::createBodyLayer);
         event.registerLayerDefinition(BobberModel.LAYER_LOCATION, BobberModel::createBodyLayer);
+        event.registerLayerDefinition(com.howtofish.mod.client.model.CrabModel.LAYER_LOCATION,
+                com.howtofish.mod.client.model.CrabModel::createBodyLayer);
     }
 }

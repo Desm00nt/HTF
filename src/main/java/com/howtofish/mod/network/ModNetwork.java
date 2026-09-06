@@ -19,5 +19,8 @@ public class ModNetwork {
     public static void register() {
         CHANNEL.registerMessage(id++, BuyItemPacket.class, BuyItemPacket::encode, BuyItemPacket::decode, BuyItemPacket::handle);
         CHANNEL.registerMessage(id++, SyncCurrencyPacket.class, SyncCurrencyPacket::encode, SyncCurrencyPacket::decode, SyncCurrencyPacket::handle);
+        CHANNEL.registerMessage(id++, MoveBaitPacket.class, MoveBaitPacket::encode, MoveBaitPacket::decode, MoveBaitPacket::handle);
+        CHANNEL.registerMessage(id++, SyncRadarPacket.class, SyncRadarPacket::encode, SyncRadarPacket::decode, SyncRadarPacket::handle);
+        CHANNEL.registerMessage(id++, BossMusicStopPacket.class, BossMusicStopPacket::encode, BossMusicStopPacket::decode, BossMusicStopPacket::handle);
     }
 }

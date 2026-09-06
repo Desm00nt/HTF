@@ -33,6 +33,9 @@ public class CustomFishEntity extends WaterAnimal {
 
     private static final EntityDataAccessor<String> FISH_TYPE =
             SynchedEntityData.defineId(CustomFishEntity.class, EntityDataSerializers.STRING);
+    /** True while the fish is hooked to a bobber and dragged through the water. */
+    private static final EntityDataAccessor<Boolean> HOOKED =
+            SynchedEntityData.defineId(CustomFishEntity.class, EntityDataSerializers.BOOLEAN);
 
     public CustomFishEntity(EntityType<? extends WaterAnimal> type, Level level) {
         super(type, level);
@@ -58,6 +61,15 @@ public class CustomFishEntity extends WaterAnimal {
     protected void defineSynchedData() {
         super.defineSynchedData();
         this.entityData.define(FISH_TYPE, FishType.ANCHOVY.getId());
+        this.entityData.define(HOOKED, false);
+    }
+
+    public void setHooked(boolean hooked) {
+        this.entityData.set(HOOKED, hooked);
+    }
+
+    public boolean isHooked() {
+        return this.entityData.get(HOOKED);
     }
 
     public void setFishType(FishType type) {
@@ -95,6 +107,21 @@ public class CustomFishEntity extends WaterAnimal {
     @Override
     public void tick() {
         super.tick();
+        // While hooked the bobber fully controls this fish server-side.
+        if (isHooked()) {
+            // Self-rescue: if the bobber vanished (e.g. world reload), free the fish.
+            if (!this.level.isClientSide && this.tickCount % 20 == 0) {
+                boolean hasBobber = this.level.getEntitiesOfClass(BobberEntity.class,
+                        this.getBoundingBox().inflate(48.0)).stream()
+                        .anyMatch(b -> b.getSyncedFish() == this);
+                if (!hasBobber) {
+                    setHooked(false);
+                    setNoAi(false);
+                    setInvulnerable(false);
+                }
+            }
+            return;
+        }
         // Out of water the fish flops around, just like vanilla fish.
         if (!this.level.isClientSide && !this.isInWater() && this.onGround) {
             if (this.random.nextInt(18) == 0) {

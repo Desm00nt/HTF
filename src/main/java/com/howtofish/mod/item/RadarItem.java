@@ -1,18 +1,22 @@
 package com.howtofish.mod.item;
 
 import com.howtofish.mod.economy.PlayerQuestData;
+import com.howtofish.mod.network.SyncRadarPacket;
+import com.howtofish.mod.world.IslandBuilder;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
 /**
- * Handheld Radar: right-click while riding the boat to reveal the coordinates
- * of the next fishing island, once the Old Man has been fed a boss trophy
- * (e.g. the Spider Crab Shell).
+ * Handheld Radar: once the Old Man has been fed a boss trophy, right-clicking
+ * switches the radar into its always-on mode - a bossbar-style heading strip
+ * appears at the top of the screen showing the direction of (and distance to)
+ * the second island.
  */
 public class RadarItem extends Item {
     public RadarItem(Properties properties) {
@@ -20,27 +24,31 @@ public class RadarItem extends Item {
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, net.minecraft.world.entity.player.Player player, InteractionHand hand) {
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (level.isClientSide) {
             return InteractionResultHolder.success(stack);
         }
 
-        boolean inBoat = player.getVehicle() instanceof Boat;
-        boolean unlocked = PlayerQuestData.hasUnlockedNextIsland(player);
-
-        if (!unlocked) {
+        if (!PlayerQuestData.hasUnlockedNextIsland(player)) {
             player.displayClientMessage(Component.translatable("message.howtofish.radar_locked"), true);
             return InteractionResultHolder.fail(stack);
         }
 
-        if (!inBoat) {
-            player.displayClientMessage(Component.translatable("message.howtofish.radar_need_boat"), true);
-            return InteractionResultHolder.fail(stack);
+        if (!PlayerQuestData.isRadarActive(player)) {
+            PlayerQuestData.setRadarActive(player, true);
+            if (player instanceof ServerPlayer sp) {
+                SyncRadarPacket.sync(sp, true);
+            }
+            var coords = IslandBuilder.SECOND_ISLAND_ORIGIN;
+            player.sendSystemMessage(Component.translatable("message.howtofish.radar_on", coords.getX(), coords.getZ()));
+        } else {
+            PlayerQuestData.setRadarActive(player, false);
+            if (player instanceof ServerPlayer sp) {
+                SyncRadarPacket.sync(sp, false);
+            }
+            player.displayClientMessage(Component.translatable("message.howtofish.radar_off"), true);
         }
-
-        var coords = com.howtofish.mod.world.IslandBuilder.SECOND_ISLAND_ORIGIN;
-        player.sendSystemMessage(Component.translatable("message.howtofish.radar_coords", coords.getX(), coords.getY(), coords.getZ()));
-        return InteractionResultHolder.consume(stack);
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
 }
