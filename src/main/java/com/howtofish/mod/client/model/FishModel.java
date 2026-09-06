@@ -57,7 +57,7 @@ public class FishModel<T extends net.minecraft.world.entity.Entity> extends Enti
                 CubeListBuilder.create().texOffs(16, 22).addBox(-4.0f, 0.0f, 0.0f, 4.0f, 0.0f, 3.0f),
                 PartPose.offsetAndRotation(2.5f, 0.5f, -2.0f, 0.0f, (float) -Math.toRadians(30), 0.0f));
 
-        return LayerDefinition.create(mesh, 32, 32);
+        return LayerDefinition.create(mesh, 64, 64);
     }
 
     @Override

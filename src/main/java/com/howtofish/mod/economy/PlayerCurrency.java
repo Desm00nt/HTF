@@ -1,7 +1,11 @@
 package com.howtofish.mod.economy;
 
+import com.howtofish.mod.network.ModNetwork;
+import com.howtofish.mod.network.SyncCurrencyPacket;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.network.PacketDistributor;
 
 /**
  * Very small helper that stores each player's Ruble balance directly in their
@@ -30,8 +34,22 @@ public class PlayerCurrency {
     public static void set(Player player, int value) {
         CompoundTag persist = player.getPersistentData();
         CompoundTag root = persist.contains(TAG_ROOT) ? persist.getCompound(TAG_ROOT) : new CompoundTag();
-        root.putInt(TAG_RUBLES, Math.max(0, value));
+        int clamped = Math.max(0, value);
+        root.putInt(TAG_RUBLES, clamped);
         persist.put(TAG_ROOT, root);
+        sync(player, clamped);
+    }
+
+    /** Pushes the current balance to the owning client (HUD + shop display). */
+    public static void requestSync(Player player) {
+        sync(player, get(player));
+    }
+
+    private static void sync(Player player, int value) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
+                    new SyncCurrencyPacket(value));
+        }
     }
 
     public static void add(Player player, int amount) {

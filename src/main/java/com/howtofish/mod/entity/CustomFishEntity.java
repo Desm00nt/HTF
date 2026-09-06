@@ -1,10 +1,16 @@
 package com.howtofish.mod.entity;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -14,6 +20,7 @@ import net.minecraft.world.entity.ai.goal.PanicGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.animal.WaterAnimal;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.pathfinder.BlockPathTypes;
 
@@ -83,6 +90,51 @@ public class CustomFishEntity extends WaterAnimal {
                 }
             }
         }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        // Out of water the fish flops around, just like vanilla fish.
+        if (!this.level.isClientSide && !this.isInWater() && this.onGround) {
+            if (this.random.nextInt(18) == 0) {
+                this.setDeltaMovement((this.random.nextDouble() - 0.5) * 0.3,
+                        0.35 + this.random.nextDouble() * 0.1,
+                        (this.random.nextDouble() - 0.5) * 0.3);
+                this.hasImpulse = true;
+                if (this.random.nextInt(3) == 0) {
+                    this.level.playSound(null, this.blockPosition(), SoundEvents.COD_FLOP,
+                            SoundSource.NEUTRAL, 1.0f, 1.0f);
+                }
+            }
+        }
+    }
+
+    /**
+     * Catch \u0026 release: right-click the landed fish with an empty hand to let it go -
+     * it escapes with a splash and no meat is dropped.
+     */
+    @Override
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (player.getItemInHand(hand).isEmpty()) {
+            if (!this.level.isClientSide) {
+                if (this.level instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(ParticleTypes.SPLASH,
+                            this.getX(), this.getY() + 0.4, this.getZ(), 12, 0.3, 0.15, 0.3, 0.1);
+                }
+                this.level.playSound(null, this.blockPosition(), SoundEvents.FISHING_BOBBER_SPLASH,
+                        SoundSource.NEUTRAL, 1.0f, 1.0f);
+                this.discard();
+            }
+            return InteractionResult.sidedSuccess(this.level.isClientSide());
+        }
+        return super.mobInteract(player, hand);
+    }
+
+    @Override
+    public boolean removeWhenFarAway(double distance) {
+        // Released fish swim away eventually, unless the player named one.
+        return !this.hasCustomName();
     }
 
     @Override

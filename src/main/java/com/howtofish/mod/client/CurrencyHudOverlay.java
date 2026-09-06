@@ -17,6 +17,13 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = com.howtofish.mod.HowToFishMod.MOD_ID, value = net.minecraftforge.api.distmarker.Dist.CLIENT)
 public class CurrencyHudOverlay extends GuiComponent {
 
+    /** Balance mirrored from the server via SyncCurrencyPacket. */
+    private static volatile int clientBalance = PlayerCurrency.STARTING_BALANCE;
+
+    public static void setClientBalance(int value) {
+        clientBalance = value;
+    }
+
     @SubscribeEvent
     public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
         if (!event.getOverlay().id().equals(VanillaGuiOverlay.PLAYER_HEALTH.id())) return;
@@ -24,7 +31,7 @@ public class CurrencyHudOverlay extends GuiComponent {
         if (mc.player == null) return;
         PoseStack poseStack = event.getPoseStack();
 
-        int rubles = PlayerCurrency.get(mc.player);
+        int rubles = clientBalance;
         int x = 4;
         int y = mc.getWindow().getGuiScaledHeight() - 68;
         fill(poseStack, x, y, x + 70, y + 14, 0x90000000);

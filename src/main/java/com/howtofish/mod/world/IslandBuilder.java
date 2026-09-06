@@ -16,15 +16,21 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public class IslandBuilder {
 
-    public static final BlockPos SPAWN_ISLAND_ORIGIN = new BlockPos(0, 63, 0);
-    public static final BlockPos SECOND_ISLAND_ORIGIN = new BlockPos(1536, 63, -1216);
+    // Sea surface of the flat ocean world is at Y=-2 (water top block), so the
+    // island surface sits at Y=0 - just 2 blocks above the water line.
+    public static final BlockPos SPAWN_ISLAND_ORIGIN = new BlockPos(0, 0, 0);
+    public static final BlockPos SECOND_ISLAND_ORIGIN = new BlockPos(1536, 0, -1216);
+
+    public static BlockPos getLighthouseLampPos() {
+        return SPAWN_ISLAND_ORIGIN.offset(8, 18, -8);
+    }
 
     public static void buildSpawnIsland(ServerLevel level) {
         BlockPos origin = SPAWN_ISLAND_ORIGIN;
         buildSandIsland(level, origin, 13);
         buildLighthouse(level, origin.offset(8, 0, -8));
         buildDock(level, origin.offset(-6, 0, 9));
-        spawnBoat(level, origin.offset(-9, 1, 12));
+        spawnBoat(level, origin.offset(-9, -1, 12));
         spawnOldMan(level, origin.offset(2, 1, 2));
     }
 

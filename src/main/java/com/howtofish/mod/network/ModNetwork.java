@@ -18,5 +18,6 @@ public class ModNetwork {
 
     public static void register() {
         CHANNEL.registerMessage(id++, BuyItemPacket.class, BuyItemPacket::encode, BuyItemPacket::decode, BuyItemPacket::handle);
+        CHANNEL.registerMessage(id++, SyncCurrencyPacket.class, SyncCurrencyPacket::encode, SyncCurrencyPacket::decode, SyncCurrencyPacket::handle);
     }
 }

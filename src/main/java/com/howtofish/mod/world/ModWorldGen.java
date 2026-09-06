@@ -43,8 +43,8 @@ public class ModWorldGen {
         String key = level.dimension().location().toString() + "@" + System.identityHashCode(level.getServer());
         if (INITIALISED_LEVELS.contains(key)) return;
 
-        // Only build once: use a lightweight marker check on the spawn column.
-        if (level.getBlockState(IslandBuilder.SPAWN_ISLAND_ORIGIN.above(20)).is(com.howtofish.mod.registry.ModBlocks.LIGHTHOUSE_LAMP.get())) {
+        // Only build once: check the lighthouse lamp block at its actual position.
+        if (level.getBlockState(IslandBuilder.getLighthouseLampPos()).is(com.howtofish.mod.registry.ModBlocks.LIGHTHOUSE_LAMP.get())) {
             INITIALISED_LEVELS.add(key);
             return;
         }

@@ -1,6 +1,7 @@
 package com.howtofish.mod.registry;
 
 import com.howtofish.mod.HowToFishMod;
+import com.howtofish.mod.entity.BobberEntity;
 import com.howtofish.mod.entity.BossFishEntity;
 import com.howtofish.mod.entity.CustomFishEntity;
 import com.howtofish.mod.entity.OldManEntity;
@@ -25,4 +26,9 @@ public class ModEntities {
     public static final RegistryObject<EntityType<OldManEntity>> OLD_MAN = ENTITY_TYPES.register("old_man",
             () -> EntityType.Builder.of(OldManEntity::new, MobCategory.MISC)
                     .sized(0.6f, 1.95f).clientTrackingRange(10).build(HowToFishMod.MOD_ID + ":old_man"));
+
+    public static final RegistryObject<EntityType<BobberEntity>> BOBBER = ENTITY_TYPES.register("bobber",
+            () -> EntityType.Builder.<BobberEntity>of(BobberEntity::new, MobCategory.MISC)
+                    .sized(0.25f, 0.25f).clientTrackingRange(4).updateInterval(5)
+                    .build(HowToFishMod.MOD_ID + ":bobber"));
 }

@@ -52,8 +52,13 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
 
         PartDefinition head = root.addOrReplaceChild("head",
                 CubeListBuilder.create().texOffs(0, 0).addBox(-4.0f, -8.0f, -4.0f, 8.0f, 8.0f, 8.0f)
-                        .texOffs(32, 0).addBox(-4.5f, -9.0f, -4.5f, 9.0f, 3.0f, 9.0f, new CubeDeformation(0.2f)), // hat brim
+                        .texOffs(0, 48).addBox(-4.5f, -9.0f, -4.5f, 9.0f, 3.0f, 9.0f, new CubeDeformation(0.2f)), // hat brim (remapped to fit 64x64)
                 PartPose.offset(0.0f, 0.0f, 0.0f));
+
+        // big Nose-tackle nose
+        head.addOrReplaceChild("nose",
+                CubeListBuilder.create().texOffs(56, 48).addBox(-1.0f, -5.0f, -4.7f, 2.0f, 2.0f, 1.0f),
+                PartPose.ZERO);
 
         head.addOrReplaceChild("jaw",
                 CubeListBuilder.create().texOffs(0, 16).addBox(-2.0f, 0.0f, -3.5f, 4.0f, 2.0f, 4.0f),
