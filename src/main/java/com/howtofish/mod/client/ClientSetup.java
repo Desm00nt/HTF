@@ -8,10 +8,9 @@ import com.howtofish.mod.client.renderer.CustomFishRenderer;
 import com.howtofish.mod.client.renderer.OldManRenderer;
 import com.howtofish.mod.registry.ModEntities;
 import com.howtofish.mod.registry.ModMenuTypes;
-import net.minecraft.client.renderer.entity.EntityRenderers;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
-import net.minecraftforge.client.event.RegisterMenuScreensEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
@@ -23,7 +22,10 @@ public class ClientSetup {
 
     @net.minecraftforge.eventbus.api.SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        // Reserved for future client-only init (item properties, key bindings, etc.)
+        // Forge 1.19.2 has no RegisterMenuScreensEvent - screens are registered
+        // through MenuScreens during client setup (enqueueWork = thread-safe).
+        event.enqueueWork(() ->
+                MenuScreens.register(ModMenuTypes.OLD_MAN_SHOP.get(), OldManShopScreen::new));
     }
 
     @net.minecraftforge.eventbus.api.SubscribeEvent
@@ -39,10 +41,5 @@ public class ClientSetup {
     public static void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(OldManModel.LAYER_LOCATION, OldManModel::createBodyLayer);
         event.registerLayerDefinition(FishModel.LAYER_LOCATION, FishModel::createBodyLayer);
-    }
-
-    @net.minecraftforge.eventbus.api.SubscribeEvent
-    public static void registerScreens(RegisterMenuScreensEvent event) {
-        event.register(ModMenuTypes.OLD_MAN_SHOP.get(), OldManShopScreen::new);
     }
 }

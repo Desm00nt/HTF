@@ -11,7 +11,7 @@ import net.minecraft.world.item.Item;
  */
 public class BeerItem extends Item {
     public static final FoodProperties FOOD = new FoodProperties.Builder()
-            .nutrition(1).saturationMod(0.2f).alwaysEdible().build();
+            .nutrition(1).saturationMod(0.2f).alwaysEat().build();
 
     public BeerItem(Properties properties) {
         super(properties.food(FOOD));

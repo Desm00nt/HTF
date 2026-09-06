@@ -12,7 +12,7 @@ import net.minecraftforge.registries.RegistryObject;
 
 public class ModEntities {
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
-            DeferredRegister.create(ForgeRegistries.ENTITIES, HowToFishMod.MOD_ID);
+            DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, HowToFishMod.MOD_ID);
 
     public static final RegistryObject<EntityType<CustomFishEntity>> CUSTOM_FISH = ENTITY_TYPES.register("custom_fish",
             () -> EntityType.Builder.of(CustomFishEntity::new, MobCategory.CREATURE)
