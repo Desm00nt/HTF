@@ -6,7 +6,7 @@ import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public class ModNetwork {
-    private static final String PROTOCOL_VERSION = "1";
+    private static final String PROTOCOL_VERSION = "2";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(HowToFishMod.MOD_ID, "main"),
             () -> PROTOCOL_VERSION,
@@ -19,7 +19,7 @@ public class ModNetwork {
     public static void register() {
         CHANNEL.registerMessage(id++, BuyItemPacket.class, BuyItemPacket::encode, BuyItemPacket::decode, BuyItemPacket::handle);
         CHANNEL.registerMessage(id++, SyncCurrencyPacket.class, SyncCurrencyPacket::encode, SyncCurrencyPacket::decode, SyncCurrencyPacket::handle);
-        CHANNEL.registerMessage(id++, MoveBaitPacket.class, MoveBaitPacket::encode, MoveBaitPacket::decode, MoveBaitPacket::handle);
+        CHANNEL.registerMessage(id++, OpenRodMenuPacket.class, OpenRodMenuPacket::encode, OpenRodMenuPacket::decode, OpenRodMenuPacket::handle);
         CHANNEL.registerMessage(id++, SyncRadarPacket.class, SyncRadarPacket::encode, SyncRadarPacket::decode, SyncRadarPacket::handle);
         CHANNEL.registerMessage(id++, BossMusicStopPacket.class, BossMusicStopPacket::encode, BossMusicStopPacket::decode, BossMusicStopPacket::handle);
     }

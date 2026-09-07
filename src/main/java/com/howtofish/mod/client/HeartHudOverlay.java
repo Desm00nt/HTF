@@ -5,7 +5,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiComponent;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
@@ -14,9 +13,11 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Replaces the vanilla hearts row with one BIG heart in the middle of the
- * screen. The heart fills from the bottom according to the player's health,
- * using a vanilla-style heart texture (empty shell + full fill).
+ * The BIG health heart. It sits at the BOTTOM of the screen, right of the
+ * custom hotbar (drawn by {@link HotbarHudOverlay} which calls
+ * {@link #drawHeart}), and fills from the bottom up according to the player's
+ * health. Uses smooth (non pixel-art) generated textures and pulses when the
+ * player is badly hurt. The vanilla hearts row is hidden.
  */
 @Mod.EventBusSubscriber(modid = HowToFishMod.MOD_ID, value = net.minecraftforge.api.distmarker.Dist.CLIENT)
 public class HeartHudOverlay extends GuiComponent {
@@ -26,65 +27,57 @@ public class HeartHudOverlay extends GuiComponent {
     private static final ResourceLocation HEART_FULL =
             new ResourceLocation(HowToFishMod.MOD_ID, "textures/gui/heart_full.png");
 
-    private static final int TEX_SIZE = 16;   // source png is 16x16
-    private static final int ART = 13;        // visible art rows/cols inside
-    private static final int GUI_SCALE = 4;   // big heart: 4x -> 64 px on screen
+    private static final int TEX = 64;
 
     @SubscribeEvent
     public static void onRenderOverlay(RenderGuiOverlayEvent.Pre event) {
         if (!event.getOverlay().id().equals(VanillaGuiOverlay.PLAYER_HEALTH.id())) return;
-        // Hide the vanilla hearts row - we draw our own big heart instead.
+        // Hide the vanilla hearts row - our big heart lives next to the hotbar.
         event.setCanceled(true);
+    }
 
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.options.hideGui) return;
-
-        PoseStack pose = event.getPoseStack();
-        int w = mc.getWindow().getGuiScaledWidth();
-        int h = mc.getWindow().getGuiScaledHeight();
-
+    /**
+     * Draws the big heart with its bottom-up health fill at the given GUI
+     * position (top-left corner), scaled to {@code size} GUI pixels.
+     */
+    public static void drawHeart(PoseStack pose, Minecraft mc, int x, int y, int size) {
+        if (mc.player == null) return;
         float hp = Mth.clamp(mc.player.getHealth() / mc.player.getMaxHealth(), 0.0f, 1.0f);
 
         // Panic pulse when low on health.
-        float pulse = 1.0f;
+        float scale = 1.0f;
         if (hp <= 0.3f) {
-            pulse = 1.0f + Mth.sin((mc.player.tickCount + mc.getFrameTime()) * 0.35f) * 0.06f;
+            scale = 1.0f + Mth.sin((mc.player.tickCount + mc.getFrameTime()) * 0.35f) * 0.07f;
         }
-
-        int size = ART * GUI_SCALE;
-        int cx = w / 2;
-        int cy = h / 2 - 52;
-
-        pose.pushPose();
-        pose.translate(cx, cy, 0);
-        pose.scale(pulse, pulse, 1.0f);
-        pose.translate(-size / 2.0f, 0, 0);
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
+        pose.pushPose();
+        // Pulse around the heart's center.
+        pose.translate(x + size / 2.0f, y + size / 2.0f, 0);
+        pose.scale(scale, scale, 1.0f);
+        pose.translate(-size / 2.0f, -size / 2.0f, 0);
+
         // Empty shell.
         RenderSystem.setShaderTexture(0, HEART_EMPTY);
-        blit(pose, 0, 0, size, size, 0.0f, 0.0f, TEX_SIZE, TEX_SIZE, TEX_SIZE, TEX_SIZE);
+        GuiComponent.blit(pose, 0, 0, 0.0f, 0.0f, size, size, TEX, TEX);
 
-        // Full heart, revealed bottom-up row by row based on health.
-        RenderSystem.setShaderTexture(0, HEART_FULL);
-        float visibleRows = hp * ART;
-        for (int row = 0; row < ART; row++) {
-            // Row 0 = top of the art. Fill from the bottom.
-            if (row >= ART - visibleRows) {
-                blit(pose, 0, row * GUI_SCALE, size, GUI_SCALE, 0.0f, (float) row, TEX_SIZE, 1, TEX_SIZE, TEX_SIZE);
-            }
+        // Fill: bottom-up, one GUI-pixel row per blit.
+        int rowsVisible = Math.max(1, Mth.ceil(hp * size));
+        for (int row = 0; row < rowsVisible; row++) {
+            int dstY = size - row - 1;                                     // screen row (bottom-up)
+            float srcY = (TEX - 1) * (1.0f - (row + 0.5f) / (float) size); // sampled texture row
+            RenderSystem.setShaderTexture(0, HEART_FULL);
+            GuiComponent.blit(pose, 0, dstY, size, 1, 0.0f, srcY, TEX, 1, TEX, TEX);
         }
 
-        RenderSystem.disableBlend();
         pose.popPose();
 
-        // Numeric health under the heart.
+        // HP number right of the heart, vertically centered.
         String text = (int) Math.ceil(mc.player.getHealth()) + "/" + (int) mc.player.getMaxHealth();
-        mc.font.drawShadow(pose, text, cx - mc.font.width(text) / 2.0f, cy + size + 3, 0xFFFFFFFF);
-        // A tiny label so the newcomer understands what this means.
-        Component label = Component.translatable("hud.howtofish.health");
-        mc.font.drawShadow(pose, label, cx - mc.font.width(label) / 2.0f, cy + size + 12, 0xFFB8D8C8);
+        mc.font.drawShadow(pose, text, x + size + 3, y + size / 2.0f - 4, 0xFFFF7070);
+
+        RenderSystem.disableBlend();
     }
 }

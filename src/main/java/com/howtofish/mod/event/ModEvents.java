@@ -5,6 +5,9 @@ import com.howtofish.mod.economy.PlayerQuestData;
 import com.howtofish.mod.network.SyncRadarPacket;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
@@ -34,6 +37,34 @@ public class ModEvents {
             if (event.getEntity() instanceof ServerPlayer sp) {
                 SyncRadarPacket.sync(sp, PlayerQuestData.isRadarActive(event.getEntity()));
             }
+        }
+    }
+
+    /**
+     * Keeps the visible hotbar to exactly THREE slots: any item that ends up
+     * in hotbar slots 3-8 is silently relocated into the storage grid (9-35),
+     * and the selected slot is clamped to 0-2. Creative players are exempt.
+     */
+    @SubscribeEvent
+    public void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END || event.player.level.isClientSide) return;
+        if (!(event.player instanceof ServerPlayer player)) return;
+        if (player.isCreative() || player.isSpectator()) return;
+
+        Inventory inv = player.getInventory();
+        for (int i = 3; i <= 8; i++) {
+            ItemStack stack = inv.getItem(i);
+            if (stack.isEmpty()) continue;
+            for (int j = 9; j < 36; j++) {
+                if (inv.getItem(j).isEmpty()) {
+                    inv.setItem(j, stack);
+                    inv.setItem(i, ItemStack.EMPTY);
+                    break;
+                }
+            }
+        }
+        if (inv.selected >= 3) {
+            inv.selected = 0;
         }
     }
 }

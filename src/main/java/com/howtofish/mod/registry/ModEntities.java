@@ -21,7 +21,7 @@ public class ModEntities {
 
     public static final RegistryObject<EntityType<BossFishEntity>> BOSS_FISH = ENTITY_TYPES.register("boss_fish",
             () -> EntityType.Builder.of(BossFishEntity::new, MobCategory.MONSTER)
-                    .sized(1.6f, 1.2f).clientTrackingRange(10).build(HowToFishMod.MOD_ID + ":boss_fish"));
+                    .sized(2.0f, 1.0f).clientTrackingRange(10).build(HowToFishMod.MOD_ID + ":boss_fish"));
 
     public static final RegistryObject<EntityType<OldManEntity>> OLD_MAN = ENTITY_TYPES.register("old_man",
             () -> EntityType.Builder.of(OldManEntity::new, MobCategory.MISC)

@@ -2,7 +2,7 @@ package com.howtofish.mod.client;
 
 import com.howtofish.mod.HowToFishMod;
 import com.howtofish.mod.network.ModNetwork;
-import com.howtofish.mod.network.MoveBaitPacket;
+import com.howtofish.mod.network.OpenRodMenuPacket;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -18,21 +18,21 @@ import org.lwjgl.glfw.GLFW;
 
 /**
  * Client-side input & screen events:
- * - "B" key sends the bait to the dedicated bait slot (offhand),
+ * - "B" key with the rod in hand opens the rod's BAIT menu,
  * - the vanilla inventory screen is replaced by the trimmed
- *   {@link FishingInventoryScreen} (3 slots + bait).
+ *   {@link FishingInventoryScreen} (3 hotbar slots + 27 storage slots).
  */
 public class ClientEvents {
 
-    public static final KeyMapping MOVE_BAIT = new KeyMapping(
-            "key.howtofish.move_bait", KeyConflictContext.IN_GAME,
+    public static final KeyMapping ROD_MENU = new KeyMapping(
+            "key.howtofish.rod_menu", KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "key.categories.howtofish");
 
     @Mod.EventBusSubscriber(modid = HowToFishMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ModBus {
         @SubscribeEvent
         public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
-            event.register(MOVE_BAIT);
+            event.register(ROD_MENU);
         }
     }
 
@@ -42,9 +42,9 @@ public class ClientEvents {
         public static void onClientTick(TickEvent.ClientTickEvent event) {
             if (event.phase != TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getInstance();
-            while (MOVE_BAIT.consumeClick()) {
-                if (mc.player != null) {
-                    ModNetwork.CHANNEL.sendToServer(new MoveBaitPacket());
+            while (ROD_MENU.consumeClick()) {
+                if (mc.player != null && mc.screen == null) {
+                    ModNetwork.CHANNEL.sendToServer(new OpenRodMenuPacket());
                 }
             }
         }

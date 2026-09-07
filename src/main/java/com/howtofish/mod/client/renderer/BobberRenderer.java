@@ -15,6 +15,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Renders the fishing float plus the line from the rod tip to the float,
@@ -46,17 +47,18 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
         this.model.renderToBuffer(poseStack, vc, packedLight, OverlayTexture.NO_OVERLAY, 1.0f, 1.0f, 1.0f, 1.0f);
         poseStack.popPose();
 
-        renderLine(entity, partialTicks, poseStack, buffer, packedLight, dip);
+        renderLine(entity, partialTicks, poseStack, buffer, packedLight);
         // While a fish is hooked, draw a second line from the float to the fish.
         CustomFishEntity fish = entity.getSyncedFish();
         if (fish != null && entity.getState() == BobberEntity.STATE_HOOKED) {
-            renderSegment(buffer, poseStack, dip,
-                    Mth.lerp(partialTicks, entity.xOld, entity.getX()),
-                    Mth.lerp(partialTicks, entity.yOld, entity.getY()) + dip,
-                    Mth.lerp(partialTicks, entity.zOld, entity.getZ()),
-                    Mth.lerp(partialTicks, fish.xOld, fish.getX()),
-                    Mth.lerp(partialTicks, fish.yOld, fish.getY()) + fish.getBbHeight() * 0.6,
-                    Mth.lerp(partialTicks, fish.zOld, fish.getZ()), packedLight);
+            // The pose stack origin is ALREADY the (interpolated) bobber position,
+            // so the fish end of the line is simply (fish - bobber).
+            double fx = Mth.lerp(partialTicks, fish.xOld, fish.getX());
+            double fy = Mth.lerp(partialTicks, fish.yOld, fish.getY()) + fish.getBbHeight() * 0.5;
+            double fz = Mth.lerp(partialTicks, fish.zOld, fish.getZ());
+            renderSegment(buffer, poseStack,
+                    fx - entity.getX(), fy - entity.getY() + dip, fz - entity.getZ(),
+                    0.0, dip, 0.0, packedLight);
         }
         super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);
     }
@@ -71,43 +73,50 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
     }
 
     private void renderLine(BobberEntity entity, float partialTicks, PoseStack poseStack,
-                            MultiBufferSource buffer, int packedLight, float dip) {
+                            MultiBufferSource buffer, int packedLight) {
         Entity owner = entity.getSyncedOwner();
         if (!(owner instanceof Player player)) return;
 
+        // Vanilla FishingHookRenderer anchor: the rod "tip" is the player's eye
+        // position pushed half a block along the look vector.
         double ox = Mth.lerp(partialTicks, player.xOld, player.getX());
         double oy = Mth.lerp(partialTicks, player.yOld, player.getY()) + player.getEyeHeight();
         double oz = Mth.lerp(partialTicks, player.zOld, player.getZ());
-        float yawRad = player.getYRot() * ((float) Math.PI / 180F);
-        // rod tip: right side of the player + slightly forward, below eye level
-        double tipX = ox - Mth.cos(yawRad) * 0.4 - Mth.sin(yawRad) * 0.3;
-        double tipY = oy - 0.15;
-        double tipZ = oz - Mth.sin(yawRad) * 0.4 + Mth.cos(yawRad) * 0.3;
+        Vec3 look = player.getViewVector(1.0F);
+        double tipX = ox + look.x * 0.5;
+        double tipY = oy + look.y * 0.5;
+        double tipZ = oz + look.z * 0.5;
 
-        double bx = Mth.lerp(partialTicks, entity.xOld, entity.getX());
-        double by = Mth.lerp(partialTicks, entity.yOld, entity.getY());
-        double bz = Mth.lerp(partialTicks, entity.zOld, entity.getZ());
-        renderSegment(buffer, poseStack, dip, tipX, tipY, tipZ, bx, by, bz, packedLight);
+        // The pose stack origin is ALREADY the bobber position (camera relative).
+        // All vertex coordinates must be RELATIVE to that origin - translating
+        // the pose stack again by world coordinates puts the line somewhere else
+        // entirely (the old bug: the line floated near the screen).
+        renderSegment(buffer, poseStack,
+                tipX - entity.getX(), tipY - entity.getY(), tipZ - entity.getZ(),
+                0.0, 0.0, 0.0, packedLight);
     }
 
-    /** Draws a sagging line strip between two world positions (leash-style TRIANGLE_STRIP). */
-    private void renderSegment(MultiBufferSource buffer, PoseStack poseStack, float dip,
+    /**
+     * Draws a sagging leash-style ribbon between two points, both given
+     * RELATIVE to the current pose stack origin (the bobber).
+     */
+    private void renderSegment(MultiBufferSource buffer, PoseStack poseStack,
                                double x0, double y0, double z0, double x1, double y1, double z1,
                                int packedLight) {
         float relX = (float) (x0 - x1);
         float relY = (float) (y0 - y1);
         float relZ = (float) (z0 - z1);
         float length = Mth.sqrt(relX * relX + relY * relY + relZ * relZ);
-        float sag = Math.min(0.12f, length * 0.02f);
+        float sag = Math.min(0.15f, length * 0.03f);
 
         // Horizontal perpendicular for the ribbon width.
         float hlen = Mth.sqrt(relX * relX + relZ * relZ);
         float px = hlen > 1.0e-4f ? relZ / hlen : 1.0f;
         float pz = hlen > 1.0e-4f ? -relX / hlen : 0.0f;
-        float w = 0.012f;
+        float w = 0.035f;
 
         poseStack.pushPose();
-        poseStack.translate(x1, y1, z1);
+        poseStack.translate((float) x1, (float) y1, (float) z1);
         VertexConsumer line = buffer.getBuffer(RenderType.leash());
         var pose = poseStack.last().pose();
         for (int i = 0; i <= SEGMENTS; ++i) {
@@ -117,9 +126,9 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
             float vy = relY * f + sagF;
             float vz = relZ * f;
             line.vertex(pose, vx + px * w, vy, vz + pz * w)
-                    .color(15, 15, 15, 255).uv2(packedLight).endVertex();
+                    .color(35, 28, 22, 255).uv2(packedLight).endVertex();
             line.vertex(pose, vx - px * w, vy, vz - pz * w)
-                    .color(15, 15, 15, 255).uv2(packedLight).endVertex();
+                    .color(35, 28, 22, 255).uv2(packedLight).endVertex();
         }
         poseStack.popPose();
     }

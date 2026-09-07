@@ -1,7 +1,6 @@
 {
     "itemGroup.howtofish": "How To Fish",
     "generator.howtofish.fishing": "How to Fish (Бесконечный океан)",
-
     "item.howtofish.fishing_rod": "Удочка",
     "item.howtofish.knife": "Нож для филе",
     "item.howtofish.radar": "Радар",
@@ -16,27 +15,19 @@
     "item.howtofish.shrimp_meat": "Сырая креветка",
     "item.howtofish.lobster_meat": "Сырой лобстер",
     "item.howtofish.pufferfish_meat": "Сырая рыба-фугу",
-
     "block.howtofish.lighthouse_lamp": "Лампа маяка",
     "block.howtofish.lighthouse_bricks": "Кирпичи маяка",
-
     "entity.howtofish.custom_fish": "Рыба",
     "entity.howtofish.boss_fish": "Краб-паук",
     "entity.howtofish.old_man": "Старый Сол, смотритель маяка",
-
     "fish.howtofish.anchovy": "Анчоус",
     "fish.howtofish.herring": "Сельдь",
     "fish.howtofish.crab": "Краб",
     "fish.howtofish.shrimp": "Креветка",
     "fish.howtofish.lobster": "Лобстер",
     "fish.howtofish.pufferfish": "Рыба-фугу",
-
     "menu.howtofish.old_man_shop": "Магазин Старого Сола",
-    "container.howtofish.bait_slot": "Приманка",
-
     "key.categories.howtofish": "How To Fish",
-    "key.howtofish.move_bait": "Переложить приманку (B)",
-
     "hud.howtofish.bite": "!!! ПОДСЕКАЙ !!!",
     "hud.howtofish.bite_hint": "Жми ПКМ!",
     "hud.howtofish.pulling": "Тянешь рыбу...",
@@ -44,10 +35,8 @@
     "hud.howtofish.waiting_hint": "Держи удочку наготове",
     "hud.howtofish.health": "Здоровье",
     "hud.howtofish.radar_caption": "ОСТРОВ · %s м · %s",
-
-    "tooltip.howtofish.bait": "Многоразовая приманка. С ней клюёт дорогая рыба!",
-    "tooltip.howtofish.bait_key": "Нажми B, чтобы переложить её в слот для приманок.",
-
+    "tooltip.howtofish.bait": "Многоразовая приманка (15 уловов). Клюёт дорогая рыба!",
+    "tooltip.howtofish.bait_key": "Нажми B с удочкой в руках, чтобы вставить приманку.",
     "message.howtofish.hooked": "Зацепилась: %s! Тяни!",
     "message.howtofish.landed": "%s вытащен на берег! Добей ножом или отпусти (пустой рукой).",
     "message.howtofish.radar_on": "Радар включён - следи за полосой вверху экрана.",
@@ -58,16 +47,28 @@
     "message.howtofish.fed_fish": "Старый Сол благодарит тебя и даёт %s рублей!",
     "message.howtofish.gave_beer": "Старый Сол выпивает пиво и отдаёт пустую банку. Отличная наживка для босса!",
     "message.howtofish.trophy_turned_in": "Старый Сол осматривает панцирь и отмечает на радаре: X: %s Y: %s Z: %s",
-    "message.howtofish.buy_button": "%s - %s\u20BD",
+    "message.howtofish.buy_button": "%s - %s₽",
     "message.howtofish.bought": "Куплено за %s рублей.",
     "message.howtofish.not_enough_money": "Недостаточно рублей!",
-    "message.howtofish.old_man_greeting0": "\u00A76Старый Сол: \u00A7fЭй! Принеси мне рыбы, и я заплачу рублями.",
-    "message.howtofish.old_man_greeting1": "\u00A76Старый Сол: \u00A7fНайдётся пивко для старого моряка? Отблагодарю сполна...",
-    "message.howtofish.old_man_greeting2": "\u00A76Старый Сол: \u00A7fЗа рифом прячется кое-что огромное. Принеси мне его панцирь, и я укажу курс.",
-
+    "message.howtofish.old_man_greeting0": "§6Старый Сол: §fЭй! Принеси мне рыбы, и я заплачу рублями.",
+    "message.howtofish.old_man_greeting1": "§6Старый Сол: §fНайдётся пивко для старого моряка? Отблагодарю сполна...",
+    "message.howtofish.old_man_greeting2": "§6Старый Сол: §fЗа рифом прячется кое-что огромное. Принеси мне его панцирь, и я укажу курс.",
     "subtitles.howtofish.old_man_eat": "Старый Сол жуёт",
     "subtitles.howtofish.old_man_talk": "Старый Сол бормочет",
     "subtitles.howtofish.coin": "Звенят монеты",
     "subtitles.howtofish.fish_flop": "Рыба бьётся",
-    "subtitles.howtofish.boss_roar": "Краб-паук рычит"
+    "subtitles.howtofish.boss_roar": "Краб-паук рычит",
+    "key.howtofish.rod_menu": "Меню приманки удочки (B)",
+    "menu.howtofish.rod_bait": "Приманки для удочки",
+    "menu.howtofish.rod_bait_empty": "Слот пуст - переложи сюда приманку (или Shift+клик)",
+    "menu.howtofish.rod_bait_set": "В удочке: %s",
+    "menu.howtofish.rod_bait_beer": "Пиво - приманка на 1 улов",
+    "menu.howtofish.rod_bait_golden": "Золотая приманка - на 15 уловов",
+    "message.howtofish.beer_used": "Пиво израсходовано (хватает на 1 улов).",
+    "message.howtofish.bait_broke": "Золотая приманка износилась и рассыпалась!",
+    "message.howtofish.need_rod": "Возьми удочку в главную руку и нажми B!",
+    "container.howtofish.inventory": "Инвентарь рыбака",
+    "container.howtofish.equipment": "Снаряжение:",
+    "container.howtofish.storage": "Хранение:",
+    "tooltip.howtofish.beer_bait": "Одноразовая приманка - хватает на 1 улов."
 }

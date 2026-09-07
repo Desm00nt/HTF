@@ -66,8 +66,10 @@ public class FishingHudOverlay extends GuiComponent {
                         0xFF000000 | color);
             }
 
-            // Progress: how close the fish is to the player.
-            float progress = Mth.clamp(1.0f - (player.distanceTo(bobber) - 2.0f) / 28.0f, 0.02f, 1.0f);
+            // Progress: distance reeled in since the hook-up.
+            float hookDist = bobber.getHookDistance();
+            float span = Math.max(4.0f, hookDist - 2.0f);
+            float progress = Mth.clamp(1.0f - (player.distanceTo(bobber) - 2.0f) / span, 0.02f, 1.0f);
             int barX = x + 5;
             int barY = y + boxH - 8;
             int barW = boxW - 10;

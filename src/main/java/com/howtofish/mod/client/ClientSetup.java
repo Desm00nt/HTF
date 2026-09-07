@@ -26,8 +26,11 @@ public class ClientSetup {
     public static void onClientSetup(FMLClientSetupEvent event) {
         // Forge 1.19.2 has no RegisterMenuScreensEvent - screens are registered
         // through MenuScreens during client setup (enqueueWork = thread-safe).
-        event.enqueueWork(() ->
-                MenuScreens.register(ModMenuTypes.OLD_MAN_SHOP.get(), OldManShopScreen::new));
+        event.enqueueWork(() -> {
+                MenuScreens.register(ModMenuTypes.OLD_MAN_SHOP.get(), OldManShopScreen::new);
+                MenuScreens.register(ModMenuTypes.ROD_BAIT.get(),
+                        com.howtofish.mod.client.RodBaitScreen::new);
+        });
     }
 
     @net.minecraftforge.eventbus.api.SubscribeEvent

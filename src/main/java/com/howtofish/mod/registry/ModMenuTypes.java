@@ -13,4 +13,7 @@ public class ModMenuTypes {
 
     public static final RegistryObject<MenuType<OldManShopMenu>> OLD_MAN_SHOP = MENUS.register("old_man_shop",
             () -> IForgeMenuType.create((windowId, inv, data) -> new OldManShopMenu(windowId, inv)));
+
+    public static final RegistryObject<MenuType<com.howtofish.mod.menu.RodBaitMenu>> ROD_BAIT = MENUS.register("rod_bait",
+            () -> IForgeMenuType.create((windowId, inv, data) -> new com.howtofish.mod.menu.RodBaitMenu(windowId, inv)));
 }

@@ -5,14 +5,19 @@ import com.howtofish.mod.network.ModNetwork;
 import com.howtofish.mod.registry.ModItems;
 import com.howtofish.mod.registry.ModSounds;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.DustParticleOptions;
+import com.mojang.math.Vector3f;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -27,6 +32,7 @@ import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.phys.Vec3;
@@ -70,11 +76,17 @@ public class BossFishEntity extends Monster {
     private int attackCooldown = 0;
     private int specialCooldown = 160;
     private int waterTicks = 0;
+    /** Server-side boss health bar (vanilla renders it at the top of the screen). */
+    private final ServerBossEvent bossBar = new ServerBossEvent(
+            Component.translatable("entity.howtofish.boss_fish"),
+            BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
 
     public BossFishEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
         this.xpReward = 40;
         this.setPersistenceRequired();
+        // Crabs climb: generous step height so it can scramble onto the shore.
+        this.maxUpStep = 1.15f;
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -115,6 +127,8 @@ public class BossFishEntity extends Monster {
     @Override
     public void tick() {
         super.tick();
+        // Keep the boss bar in sync with the health.
+        this.bossBar.setProgress(Mth.clamp(this.getHealth() / this.getMaxHealth(), 0.0f, 1.0f));
         if (this.level.isClientSide) {
             return;
         }
@@ -129,14 +143,44 @@ public class BossFishEntity extends Monster {
             case STATE_TELEGRAPH -> tickTelegraph(target);
             case STATE_LEAPING -> tickLeaping(target);
         }
+    }
 
-        // Swim upwards in water so it can climb back onto the island.
+    /**
+     * Manual crab locomotion. Ground navigation cannot path a monster out of
+     * the sea onto an island, which left the boss frozen in the water - so the
+     * crab now scuttles with direct velocity: paddles while swimming, walks on
+     * land, and JUMPS whenever it bumps into an obstacle (climbing the shore).
+     */
+    private void moveTowards(LivingEntity target, double speed) {
+        Vec3 diff = target.position().subtract(this.position());
+        double horiz = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
+        if (horiz < 0.05) return;
+        Vec3 dir = new Vec3(diff.x / horiz, 0, diff.z / horiz);
+
+        double yPull = 0.0;
         if (isInWater()) {
-            this.waterTicks++;
-            this.setDeltaMovement(this.getDeltaMovement().add(0, 0.06, 0));
+            // Paddle up to the surface while far below it.
+            if (this.getY() < target.getY() - 0.5) yPull = 0.05;
+            else yPull = 0.015;
+        }
+        this.setDeltaMovement(this.getDeltaMovement().scale(0.6).add(dir.scale(speed)).add(0, yPull, 0));
+        this.hasImpulse = true;
+        this.hurtMarked = true;
+
+        // Face the target.
+        float targetYaw = (float) (Mth.atan2(diff.z, diff.x) * (180F / Math.PI)) - 90.0f;
+        this.setYRot(this.yRotO + Mth.wrapDegrees(targetYaw - this.yRotO) * 0.4f);
+        this.yBodyRot = this.getYRot();
+        this.yHeadRot = this.getYRot();
+
+        // Jump over obstacles (and onto the shore).
+        if (this.onGround && this.horizontalCollision) {
+            this.setDeltaMovement(this.getDeltaMovement().add(0, 0.42, 0).add(dir.scale(0.12)));
             this.hurtMarked = true;
-        } else {
-            this.waterTicks = 0;
+        } else if (isInWater() && this.horizontalCollision) {
+            // Climbing out of the water onto the beach.
+            this.setDeltaMovement(this.getDeltaMovement().add(0, 0.35, 0));
+            this.hurtMarked = true;
         }
     }
 
@@ -148,10 +192,9 @@ public class BossFishEntity extends Monster {
         }
         double dist = this.distanceTo(target);
 
-        // Pathfind towards the player.
-        if (this.onGround) {
-            getNavigation().moveTo(target, 1.25d);
-        }
+        // Scuttle towards the player (manual locomotion - navigation often
+        // cannot path out of water, which froze the old boss in place).
+        moveTowards(target, 0.18);
 
         // Aggressive jump towards the player.
         if (this.onGround && --this.jumpCooldown <= 0 && dist < 14.0) {
@@ -161,7 +204,6 @@ public class BossFishEntity extends Monster {
                 horiz = horiz.normalize();
                 this.setDeltaMovement(horiz.scale(0.55).add(0, 0.58, 0));
                 this.hurtMarked = true;
-                this.level.broadcastEntityEvent(this, (byte) 4); // leg animation kick
                 playBossSound(SoundEvents.SPIDER_AMBIENT, 0.9f, 0.7f);
             }
             this.jumpCooldown = 30 + this.random.nextInt(30);
@@ -220,6 +262,25 @@ public class BossFishEntity extends Monster {
         this.setDeltaMovement(this.getDeltaMovement().scale(0.3));
         this.entityData.set(DATA_TELE_TICKS, Math.max(0, this.stateTimer));
 
+        // Server-side red circle particles as well (reliable for all clients):
+        // a glowing ring of red dust around the target, pulsing each few ticks.
+        if (this.tickCount % 2 == 0 && target != null && target.isAlive()) {
+            double px = target.getX();
+            double pz = target.getZ();
+            double py = target.getY() + 0.1;
+            float progress = 1.0f - this.stateTimer / (float) TELEGRAPH_TIME;
+            double radius = 0.6 + 2.2 * progress;
+            if (this.level instanceof ServerLevel sl) {
+                DustParticleOptions red = new DustParticleOptions(new Vector3f(1.0f, 0.1f, 0.1f), 1.4f);
+                for (int i = 0; i < 22; i++) {
+                    double angle = Math.PI * 2 * i / 22.0 + this.tickCount * 0.08;
+                    sl.sendParticles(red,
+                            px + Math.cos(angle) * radius, py, pz + Math.sin(angle) * radius,
+                            1, 0.0, 0.0, 0.0, 0.0);
+                }
+            }
+        }
+
         if (--this.stateTimer <= 0 || target == null || !target.isAlive()) {
             startLeap(target);
         }
@@ -241,6 +302,10 @@ public class BossFishEntity extends Monster {
 
     private void tickLeaping(@Nullable LivingEntity target) {
         // Airborne - let physics do the work, then slam down.
+        if (this.level instanceof ServerLevel sl && this.tickCount % 2 == 0) {
+            sl.sendParticles(ParticleTypes.POOF, this.getX(), this.getY() + 0.5, this.getZ(),
+                    2, 0.2, 0.1, 0.2, 0.01);
+        }
         if (this.onGround || --this.stateTimer <= 0) {
             landSlam();
         }
@@ -289,6 +354,36 @@ public class BossFishEntity extends Monster {
                         net.minecraftforge.network.PacketDistributor.DIMENSION.with(() -> sl.dimension()),
                         new BossMusicStopPacket());
             }
+        }
+        this.bossBar.setProgress(0.0f);
+        this.bossBar.removeAllPlayers();
+    }
+
+    @Override
+    public void startSeenByPlayer(ServerPlayer player) {
+        super.startSeenByPlayer(player);
+        this.bossBar.addPlayer(player);
+    }
+
+    @Override
+    public void stopSeenByPlayer(ServerPlayer player) {
+        super.stopSeenByPlayer(player);
+        this.bossBar.removePlayer(player);
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        super.remove(reason);
+        if (!this.level.isClientSide) {
+            this.bossBar.removeAllPlayers();
+        }
+    }
+
+    @Override
+    public void setCustomName(@Nullable Component name) {
+        super.setCustomName(name);
+        if (this.bossBar != null && name != null) {
+            this.bossBar.setName(name);
         }
     }
 

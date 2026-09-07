@@ -10,20 +10,42 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * The Golden Bait - a REUSABLE lure sold by the Old Man. Put it into the bait
- * slot (the offhand slot) by pressing the "B" key or by hand: while equipped,
- * valuable fish bite much more often and start biting faster. It is never
- * consumed.
+ * The Golden Bait - a REUSABLE lure sold by the Old Man. Insert it into the
+ * rod's bait slot via the rod menu ("B" key with the rod in hand). While
+ * equipped, valuable fish bite much more often and start biting faster.
+ * It survives {@value #MAX_USES} catches and then breaks.
  */
 public class BaitItem extends Item {
+
+    public static final int MAX_USES = 15;
 
     public BaitItem(Properties properties) {
         super(properties);
     }
 
+    /** Remaining catches, stored in the bait stack's Damage tag (only used while in the rod). */
+    public static int getBaitDamage(ItemStack stack) {
+        return stack.getOrCreateTag().getInt("Damage");
+    }
+
     @Override
     public boolean isFoil(ItemStack stack) {
         return true;
+    }
+
+    @Override
+    public boolean isBarVisible(ItemStack stack) {
+        return getBaitDamage(stack) > 0;
+    }
+
+    @Override
+    public int getBarWidth(ItemStack stack) {
+        return Math.round(13.0f * (1.0f - (float) getBaitDamage(stack) / MAX_USES));
+    }
+
+    @Override
+    public int getBarColor(ItemStack stack) {
+        return 0xFFD700;
     }
 
     @Override

@@ -1,7 +1,6 @@
 {
     "itemGroup.howtofish": "How To Fish",
     "generator.howtofish.fishing": "How to Fish (Endless Ocean)",
-
     "item.howtofish.fishing_rod": "Fishing Rod",
     "item.howtofish.knife": "Fillet Knife",
     "item.howtofish.radar": "Island Radar",
@@ -16,27 +15,19 @@
     "item.howtofish.shrimp_meat": "Raw Shrimp",
     "item.howtofish.lobster_meat": "Raw Lobster",
     "item.howtofish.pufferfish_meat": "Raw Pufferfish",
-
     "block.howtofish.lighthouse_lamp": "Lighthouse Lamp",
     "block.howtofish.lighthouse_bricks": "Lighthouse Bricks",
-
     "entity.howtofish.custom_fish": "Fish",
     "entity.howtofish.boss_fish": "Spider Crab",
     "entity.howtofish.old_man": "Old Sol, the Lighthouse Keeper",
-
     "fish.howtofish.anchovy": "Anchovy",
     "fish.howtofish.herring": "Herring",
     "fish.howtofish.crab": "Crab",
     "fish.howtofish.shrimp": "Shrimp",
     "fish.howtofish.lobster": "Lobster",
     "fish.howtofish.pufferfish": "Pufferfish",
-
     "menu.howtofish.old_man_shop": "Old Sol's Shop",
-    "container.howtofish.bait_slot": "Bait",
-
     "key.categories.howtofish": "How To Fish",
-    "key.howtofish.move_bait": "Move Bait to Slot (B)",
-
     "hud.howtofish.bite": "!!! HOOK IT !!!",
     "hud.howtofish.bite_hint": "Right click now!",
     "hud.howtofish.pulling": "Reeling in...",
@@ -44,10 +35,8 @@
     "hud.howtofish.waiting_hint": "Hold the rod steady",
     "hud.howtofish.health": "Health",
     "hud.howtofish.radar_caption": "ISLAND · %s m · %s",
-
-    "tooltip.howtofish.bait": "Reusable bait. Expensive fish bite with it!",
-    "tooltip.howtofish.bait_key": "Press B to move it to the bait slot.",
-
+    "tooltip.howtofish.bait": "Reusable bait (15 catches). Expensive fish bites with it!",
+    "tooltip.howtofish.bait_key": "Press B with the rod in hand to insert a bait.",
     "message.howtofish.hooked": "Hooked: %s! Reel it in!",
     "message.howtofish.landed": "The %s is on the shore! Kill it with the knife or release it (empty hand).",
     "message.howtofish.radar_on": "Radar ON - follow the bar at the top of the screen.",
@@ -58,16 +47,28 @@
     "message.howtofish.fed_fish": "Old Sol thanks you and pays %s rubles!",
     "message.howtofish.gave_beer": "Old Sol drinks the beer and hands back an empty can. Great boss bait!",
     "message.howtofish.trophy_turned_in": "Old Sol examines the shell and marks the radar: X: %s Y: %s Z: %s",
-    "message.howtofish.buy_button": "%s - %s\u20BD",
+    "message.howtofish.buy_button": "%s - %s₽",
     "message.howtofish.bought": "Bought for %s rubles.",
     "message.howtofish.not_enough_money": "Not enough rubles!",
-    "message.howtofish.old_man_greeting0": "\u00A76Old Sol: \u00A7fHey! Bring me fish and I'll pay in rubles.",
-    "message.howtofish.old_man_greeting1": "\u00A76Old Sol: \u00A7fGot a beer for an old sailor? I'll make it worth your while...",
-    "message.howtofish.old_man_greeting2": "\u00A76Old Sol: \u00A7fSomething huge lurks beyond the reef. Bring me its shell and I'll set your course.",
-
+    "message.howtofish.old_man_greeting0": "§6Old Sol: §fHey! Bring me fish and I'll pay in rubles.",
+    "message.howtofish.old_man_greeting1": "§6Old Sol: §fGot a beer for an old sailor? I'll make it worth your while...",
+    "message.howtofish.old_man_greeting2": "§6Old Sol: §fSomething huge lurks beyond the reef. Bring me its shell and I'll set your course.",
     "subtitles.howtofish.old_man_eat": "Old Sol munches",
     "subtitles.howtofish.old_man_talk": "Old Sol mumbles",
     "subtitles.howtofish.coin": "Coins jingle",
     "subtitles.howtofish.fish_flop": "Fish flops",
-    "subtitles.howtofish.boss_roar": "Spider Crab roars"
+    "subtitles.howtofish.boss_roar": "Spider Crab roars",
+    "key.howtofish.rod_menu": "Open Rod Bait Menu (B)",
+    "menu.howtofish.rod_bait": "Fishing Rod Baits",
+    "menu.howtofish.rod_bait_empty": "Bait slot empty - put a bait here (or Shift+Click)",
+    "menu.howtofish.rod_bait_set": "In the rod: %s",
+    "menu.howtofish.rod_bait_beer": "Beer - enough for 1 catch",
+    "menu.howtofish.rod_bait_golden": "Golden Bait - enough for 15 catches",
+    "message.howtofish.beer_used": "The beer bait is gone (lasts 1 catch).",
+    "message.howtofish.bait_broke": "The Golden Bait wore out and crumbled!",
+    "message.howtofish.need_rod": "Hold the fishing rod in your main hand and press B!",
+    "container.howtofish.inventory": "Fisherman Inventory",
+    "container.howtofish.equipment": "Equipment:",
+    "container.howtofish.storage": "Storage:",
+    "tooltip.howtofish.beer_bait": "One-time bait - enough for a single catch."
 }

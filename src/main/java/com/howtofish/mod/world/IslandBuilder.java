@@ -184,13 +184,24 @@ public class IslandBuilder {
         BlockState white = ModBlocks.LIGHTHOUSE_BRICKS.get().defaultBlockState();
         BlockState red = Blocks.RED_CONCRETE.defaultBlockState();
         BlockState glass = Blocks.GLASS.defaultBlockState();
+        BlockState bricks = Blocks.STONE_BRICKS.defaultBlockState();
 
-        int tallH = 16;  // striped section
+        // ---- Foundation plinth: a wide brick skirt around the base. ----
+        for (int x = -3; x <= 3; x++) {
+            for (int z = -3; z <= 3; z++) {
+                double dist = Math.sqrt(x * x + z * z);
+                if (dist > 2.0 && dist <= 3.2) {
+                    level.setBlock(base.offset(x, 1, z), dist > 2.8 ? bricks : white, 3);
+                }
+            }
+        }
+
+        // ---- Striped tower: classic alternating red / white bands. ----
+        int tallH = 16;
         for (int y = 0; y < tallH; y++) {
-            // Taper: radius 2 (7x7 ring) for lower half, radius 1 (5x5) above.
             float ring = y < 9 ? 1.9f : 1.4f;
-            // Stripes: white base with red bands every 3 rows.
-            BlockState wall = (y % 6 < 2) ? red : white;
+            // Two-row red bands on white, classic lighthouse look.
+            BlockState wall = (y / 2) % 2 == 0 ? red : white;
             for (int x = -2; x <= 2; x++) {
                 for (int z = -2; z <= 2; z++) {
                     double dist = Math.sqrt(x * x + z * z);
@@ -201,23 +212,29 @@ public class IslandBuilder {
                     }
                 }
             }
-            // Side windows every 4 rows.
+            // Windows with a white sill on all four sides.
             if (y == 4 || y == 8 || y == 12) {
                 level.setBlock(base.offset(0, y + 1, 2), glass, 3);
                 level.setBlock(base.offset(2, y + 1, 0), glass, 3);
                 level.setBlock(base.offset(0, y + 1, -2), glass, 3);
                 level.setBlock(base.offset(-2, y + 1, 0), glass, 3);
             }
+            if (y == 3 || y == 7 || y == 11) {
+                level.setBlock(base.offset(0, y + 1, 2), white, 3);
+                level.setBlock(base.offset(2, y + 1, 0), white, 3);
+                level.setBlock(base.offset(0, y + 1, -2), white, 3);
+                level.setBlock(base.offset(-2, y + 1, 0), white, 3);
+            }
         }
 
-        // Gallery deck at y=17: stone brick slab ring + corner fence posts.
+        // ---- Gallery deck: slab ring + FULL oak fence railing. ----
         int galleryY = tallH + 1;
-        BlockState slab = Blocks.STONE_BRICK_SLAB.defaultBlockState();
+        BlockState deck = Blocks.STONE_BRICK_SLAB.defaultBlockState();
         for (int x = -2; x <= 2; x++) {
             for (int z = -2; z <= 2; z++) {
                 double dist = Math.sqrt(x * x + z * z);
                 if (dist > 1.6 && dist <= 2.3) {
-                    level.setBlock(base.offset(x, galleryY, z), slab, 3);
+                    level.setBlock(base.offset(x, galleryY, z), deck, 3);
                 } else if (dist <= 1.6) {
                     level.setBlock(base.offset(x, galleryY, z), white, 3);
                 }
@@ -225,38 +242,47 @@ public class IslandBuilder {
         }
         for (int x = -2; x <= 2; x++) {
             for (int z = -2; z <= 2; z++) {
-                if (Math.abs(x) == 2 && Math.abs(z) == 2) {
+                double dist = Math.sqrt(x * x + z * z);
+                if (dist > 1.9 && dist <= 2.3) {
                     level.setBlock(base.offset(x, galleryY + 1, z), Blocks.OAK_FENCE.defaultBlockState(), 3);
                 }
             }
         }
 
-        // Lamp room: glass ring on the gallery, lamp inside.
+        // ---- Lamp room: corner posts + glass on two levels, lamp glowing inside. ----
         int lampY = galleryY + 1;
-        for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
-                if (Math.abs(x) == 1 || Math.abs(z) == 1) {
-                    level.setBlock(base.offset(x, lampY, z), glass, 3);
-                } else {
-                    level.setBlock(base.offset(x, lampY, z), ModBlocks.LIGHTHOUSE_LAMP.get().defaultBlockState(), 3);
+        for (int dy = 0; dy < 2; dy++) {
+            for (int x = -1; x <= 1; x++) {
+                for (int z = -1; z <= 1; z++) {
+                    if (Math.abs(x) == 1 && Math.abs(z) == 1) {
+                        level.setBlock(base.offset(x, lampY + dy, z), Blocks.OAK_FENCE.defaultBlockState(), 3);
+                    } else if (Math.abs(x) == 1 || Math.abs(z) == 1) {
+                        level.setBlock(base.offset(x, lampY + dy, z), glass, 3);
+                    }
                 }
             }
         }
+        // The lamp sits on the gallery centre column.
+        level.setBlock(base.offset(0, lampY, 0), ModBlocks.LIGHTHOUSE_LAMP.get().defaultBlockState(), 3);
+        level.setBlock(base.offset(0, lampY + 1, 0), Blocks.AIR.defaultBlockState(), 3);
 
-        // Dome roof: slabs shrinking, topped by a lightning rod.
-        int roofY = lampY + 1;
-        level.setBlock(base.offset(0, roofY, 0), Blocks.STONE_BRICK_SLAB.defaultBlockState(), 3);
-        level.setBlock(base.offset(1, roofY, 0), Blocks.STONE_BRICK_SLAB.defaultBlockState(), 3);
-        level.setBlock(base.offset(-1, roofY, 0), Blocks.STONE_BRICK_SLAB.defaultBlockState(), 3);
-        level.setBlock(base.offset(0, roofY, 1), Blocks.STONE_BRICK_SLAB.defaultBlockState(), 3);
-        level.setBlock(base.offset(0, roofY, -1), Blocks.STONE_BRICK_SLAB.defaultBlockState(), 3);
+        // ---- Dome roof: dark oak cap + stone finial + lightning rod. ----
+        int roofY = lampY + 2;
+        for (int x = -1; x <= 1; x++) {
+            for (int z = -1; z <= 1; z++) {
+                level.setBlock(base.offset(x, roofY, z), Blocks.DARK_OAK_SLAB.defaultBlockState(), 3);
+            }
+        }
         level.setBlock(base.offset(0, roofY + 1, 0), Blocks.STONE_BRICK_SLAB.defaultBlockState(), 3);
         level.setBlock(base.offset(0, roofY + 2, 0), Blocks.LIGHTNING_ROD.defaultBlockState(), 3);
 
-        // Entrance: door opening on the +Z side with a step in front.
+        // ---- Entrance: arched doorway, step, flanking lanterns. ----
         level.setBlock(base.offset(0, 1, 2), Blocks.AIR.defaultBlockState(), 3);
         level.setBlock(base.offset(0, 2, 2), Blocks.AIR.defaultBlockState(), 3);
+        level.setBlock(base.offset(0, 3, 2), white, 3); // arch top
         level.setBlock(base.offset(0, 1, 3), Blocks.STONE_BRICK_STAIRS.defaultBlockState(), 3);
+        level.setBlock(base.offset(1, 1, 3), Blocks.LANTERN.defaultBlockState(), 3);
+        level.setBlock(base.offset(-1, 1, 3), Blocks.LANTERN.defaultBlockState(), 3);
     }
 
     /** The keeper's small hut: log corners, plank walls, stair roof, lantern. */

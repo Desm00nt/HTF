@@ -161,9 +161,25 @@ public class BobberEntity extends Projectile {
         return this.entityData.get(DATA_HOOK_DISTANCE);
     }
 
-    /** True if the player has the Golden Bait in the offhand slot (reusable). */
+    /** True if the ROD currently held by the player has a bait inserted (rod menu). */
     public static boolean hasBait(Player player) {
-        return player.getOffhandItem().getItem() instanceof BaitItem;
+        for (ItemStack s : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
+            if (s.getItem() instanceof com.howtofish.mod.item.FishingRodCustomItem
+                    && !com.howtofish.mod.item.FishingRodCustomItem.getBait(s).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Server: consume one use of the bait in the held rod (beer = 1 use, golden = 15). */
+    private static void consumeBait(Player player) {
+        for (ItemStack s : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
+            if (s.getItem() instanceof com.howtofish.mod.item.FishingRodCustomItem) {
+                com.howtofish.mod.item.FishingRodCustomItem.consumeBait(s, player);
+                return;
+            }
+        }
     }
 
     @Override
@@ -270,9 +286,9 @@ public class BobberEntity extends Projectile {
             return 1;
         }
         if (state == STATE_HOOKED) {
-            this.reelBoost = 18;
+            this.reelBoost = 26;
             this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
-                    SoundEvents.FISHING_BOBBER_RETRIEVE, SoundSource.PLAYERS, 0.7f, 1.3f);
+                    SoundEvents.FISHING_BOBBER_RETRIEVE, SoundSource.PLAYERS, 0.9f, 1.2f);
             return 0;
         }
         this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
@@ -284,6 +300,7 @@ public class BobberEntity extends Projectile {
     /** Hook: the fish that bit is now attached and will be pulled out of the water. */
     private void hookFish(Player player) {
         FishType type = FishType.roll(this.random, hasBait(player));
+        consumeBait(player);
         CustomFishEntity fish = new CustomFishEntity(ModEntities.CUSTOM_FISH.get(), this.level);
         fish.setFishType(type);
         // Starts right below the float, under water - it will be dragged out.
@@ -312,7 +329,12 @@ public class BobberEntity extends Projectile {
                         "fish.howtofish." + type.getId())), true);
     }
 
-    /** The fish visibly follows the float while the float is reeled towards the player. */
+    /**
+     * The fish visibly follows the float while the float is reeled towards the
+     * player. The float stays on the WATER SURFACE and glides horizontally, so
+     * the fight is slow and readable: the fish trails behind it, splashing and
+     * struggling, and only lands once it reaches the shore.
+     */
     private void tickHooked(Player player) {
         CustomFishEntity fish = this.level.getEntity(this.entityData.get(DATA_FISH_ID)) instanceof CustomFishEntity f ? f : null;
         if (fish == null || !fish.isAlive()) {
@@ -321,48 +343,57 @@ public class BobberEntity extends Projectile {
             return;
         }
 
-        Vec3 target = player.position().add(0, 0.6, 0);
-        Vec3 diff = target.subtract(this.position());
-        double dist = diff.length();
+        Vec3 diff = player.position().subtract(this.position());
+        double horiz = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
 
         // Landed: put the fish down next to the player.
-        if (dist < 2.0 || this.onGround) {
+        if (horiz < 2.2) {
             releaseFish(player, fish);
             this.discardAndClean();
             return;
         }
 
-        // Reel speed: slow base + boost when the player actively pulls.
-        double speed = 0.16;
+        // Reel speed: slow base + boost while the player actively pulls (PKM).
+        double speed = 0.045;
         if (this.reelBoost > 0) {
             this.reelBoost--;
-            speed += 0.11;
+            speed += 0.085;
         }
-        Vec3 step = diff.normalize().scale(Math.min(speed, Math.max(0.0, dist - 1.5)));
-        this.setPos(this.getX() + step.x, this.getY() + step.y, this.getZ() + step.z);
+        Vec3 dirH = new Vec3(diff.x / horiz, 0, diff.z / horiz);
+        double step = Math.min(speed, Math.max(0.0, horiz - 1.8));
+        // Glide along the water surface: keep the float at the surface height.
+        double surfaceY = findSurfaceY();
+        this.setPos(this.getX() + dirH.x * step, surfaceY, this.getZ() + dirH.z * step);
+        this.setYRot((float) (Mth.atan2(dirH.z, dirH.x) * (180F / Math.PI)) - 90.0f);
 
-        // The fish swims behind the float, with a lively sideways struggle.
+        // The fish swims BEHIND the float with a lively sideways struggle.
         this.struggleTimer++;
-        Vec3 toFish = this.position().subtract(0, 0.15, 0).subtract(fish.position());
+        Vec3 behind = this.position().add(0, -0.25, 0).subtract(dirH.scale(0.7));
+        Vec3 toFish = behind.subtract(fish.position());
         double fd = toFish.length();
         if (fd > 0.01) {
-            double pull = Mth.clamp(fd * 0.22, 0.10, 0.42) + (this.reelBoost > 0 ? 0.06 : 0.0);
-            double perp = Math.sin(this.struggleTimer * 0.45) * 0.035;
+            double pull = Mth.clamp(fd * 0.18, 0.07, 0.34) + (this.reelBoost > 0 ? 0.05 : 0.0);
+            double perp = Math.sin(this.struggleTimer * 0.4) * 0.05;
             Vec3 dir = toFish.normalize();
             Vec3 side = new Vec3(-dir.z, 0, dir.x);
             Vec3 vel = dir.scale(pull).add(side.scale(perp));
             if (!fish.isInWater()) {
-                vel = vel.add(0, -0.06, 0);
+                vel = vel.add(0, -0.08, 0);
             }
             fish.setDeltaMovement(vel);
             // Manual server-side drag (the fish has no AI while hooked).
             fish.setPos(fish.getX() + vel.x, fish.getY() + vel.y, fish.getZ() + vel.z);
+            // Keep the fish right at the surface so the fight is visible.
+            double fishSurface = findSurfaceYAt(fish.getX(), fish.getY(), fish.getZ());
+            if (fish.getY() > fishSurface + 0.2) {
+                fish.setPos(fish.getX(), fishSurface + 0.2, fish.getZ());
+            }
         }
         fish.hurtMarked = true;
         fish.setYRot((float) (Mth.atan2(vel(fish).z, vel(fish).x) * (180F / Math.PI)) - 90.0f);
 
         // Splashes while the fish fights on the surface.
-        if (this.struggleTimer % 12 == 0) {
+        if (this.struggleTimer % 10 == 0) {
             this.level.playSound(null, fish.blockPosition(), SoundEvents.FISHING_BOBBER_SPLASH,
                     SoundSource.PLAYERS, 0.5f, 0.8f + this.random.nextFloat() * 0.4f);
             if (this.level instanceof ServerLevel sl) {
@@ -370,6 +401,28 @@ public class BobberEntity extends Projectile {
                         8, 0.25, 0.1, 0.25, 0.1);
             }
         }
+    }
+
+    /** Water surface height at the float's position, searching up/down a little. */
+    private double findSurfaceY() {
+        return findSurfaceYAt(this.getX(), this.getY(), this.getZ());
+    }
+
+    private double findSurfaceYAt(double x, double y, double z) {
+        BlockPos base = new BlockPos(Mth.floor(x), Mth.floor(y), Mth.floor(z));
+        // Already at a water surface?
+        if (this.level.getFluidState(base).is(FluidTags.WATER)) {
+            return base.getY() + (float) (Math.sin((this.tickCount) * 0.25) * 0.02);
+        }
+        for (int dy = 0; dy <= 3; dy++) {
+            BlockPos up = base.above(dy);
+            if (this.level.getFluidState(up).is(FluidTags.WATER)) return up.getY();
+        }
+        for (int dy = 1; dy <= 4; dy++) {
+            BlockPos down = base.below(dy);
+            if (this.level.getFluidState(down).is(FluidTags.WATER)) return down.getY();
+        }
+        return y;
     }
 
     private static Vec3 vel(Entity e) {
