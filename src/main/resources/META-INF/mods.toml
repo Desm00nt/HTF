@@ -1,7 +1,7 @@
 modLoader="javafml"
 loaderVersion="[43,)"
 license="${mod_license}"
-issueTrackerURL="https://github.com/"
+issueTrackerURL="https://github.com/Desm00nt/HTF/issues"
 
 [[mods]]
 modId="${mod_id}"

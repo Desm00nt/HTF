@@ -4,23 +4,25 @@ import com.howtofish.mod.HowToFishMod;
 import com.howtofish.mod.client.model.BobberModel;
 import com.howtofish.mod.entity.BobberEntity;
 import com.howtofish.mod.entity.CustomFishEntity;
+import com.howtofish.mod.item.FishingRodCustomItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Renders the fishing float plus the line from the rod tip to the float,
- * following the vanilla FishingHookRenderer approach (RenderType.leash
- * line strip with a light sag).
+ * Renders the fishing float plus the line from the ROD TIP in the player's
+ * hand down to the float (vanilla FishingHookRenderer-style anchor maths),
+ * and a second segment from the float to a hooked fish.
  */
 public class BobberRenderer extends EntityRenderer<BobberEntity> {
 
@@ -47,7 +49,7 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
         this.model.renderToBuffer(poseStack, vc, packedLight, OverlayTexture.NO_OVERLAY, 1.0f, 1.0f, 1.0f, 1.0f);
         poseStack.popPose();
 
-        renderLine(entity, partialTicks, poseStack, buffer, packedLight);
+        renderLine(entity, partialTicks, poseStack, buffer, packedLight, dip);
         // While a fish is hooked, draw a second line from the float to the fish.
         CustomFishEntity fish = entity.getSyncedFish();
         if (fish != null && entity.getState() == BobberEntity.STATE_HOOKED) {
@@ -58,7 +60,7 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
             double fz = Mth.lerp(partialTicks, fish.zOld, fish.getZ());
             renderSegment(buffer, poseStack,
                     fx - entity.getX(), fy - entity.getY() + dip, fz - entity.getZ(),
-                    0.0, dip, 0.0, packedLight);
+                    0.0, 0.0, 0.0, packedLight);
         }
         super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);
     }
@@ -73,27 +75,56 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
     }
 
     private void renderLine(BobberEntity entity, float partialTicks, PoseStack poseStack,
-                            MultiBufferSource buffer, int packedLight) {
+                            MultiBufferSource buffer, int packedLight, float dip) {
         Entity owner = entity.getSyncedOwner();
         if (!(owner instanceof Player player)) return;
 
-        // Vanilla FishingHookRenderer anchor: the rod "tip" is the player's eye
-        // position pushed half a block along the look vector.
-        double ox = Mth.lerp(partialTicks, player.xOld, player.getX());
-        double oy = Mth.lerp(partialTicks, player.yOld, player.getY()) + player.getEyeHeight();
-        double oz = Mth.lerp(partialTicks, player.zOld, player.getZ());
-        Vec3 look = player.getViewVector(1.0F);
-        double tipX = ox + look.x * 0.5;
-        double tipY = oy + look.y * 0.5;
-        double tipZ = oz + look.z * 0.5;
-
-        // The pose stack origin is ALREADY the bobber position (camera relative).
-        // All vertex coordinates must be RELATIVE to that origin - translating
-        // the pose stack again by world coordinates puts the line somewhere else
-        // entirely (the old bug: the line floated near the screen).
+        Vec3 tip = rodTipAnchor(player, partialTicks);
+        // The pose stack origin is the bobber, so everything is relative to it.
         renderSegment(buffer, poseStack,
-                tipX - entity.getX(), tipY - entity.getY(), tipZ - entity.getZ(),
-                0.0, 0.0, 0.0, packedLight);
+                tip.x - entity.getX(), tip.y - entity.getY(), tip.z - entity.getZ(),
+                0.0, dip, 0.0, packedLight);
+    }
+
+    /**
+     * World-space position of the rod tip: derived from the holding hand the
+     * same way vanilla's FishingHookRenderer derives its line anchor - eye
+     * position, a lateral offset to the side of the holding arm, pushed
+     * forward along the look vector and lifted/ducked by the swing arc.
+     */
+    public static Vec3 rodTipAnchor(Player player, float pt) {
+        boolean inMain = player.getMainHandItem().getItem() instanceof FishingRodCustomItem;
+        boolean inOff = player.getOffhandItem().getItem() instanceof FishingRodCustomItem;
+        InteractionHand hand = inOff && !inMain ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+        HumanoidArm arm = player.getMainArm();
+        if (hand == InteractionHand.OFF_HAND) arm = arm.getOpposite();
+        float sideSign = arm == HumanoidArm.RIGHT ? 1.0f : -1.0f;
+
+        Vec3 eye = player.getEyePosition(pt);
+        Vec3 look = player.getViewVector(pt);
+
+        float swing = Mth.sin(Mth.clamp(player.attackAnim, 0.0f, 1.0f) * (float) Math.PI) * 0.2f;
+        float walk = Mth.clamp((float) player.getDeltaMovement().horizontalDistance(), 0f, 0.2f) * 5.0f;
+        float bob = Mth.sin(player.tickCount * 0.13f + player.getId() * 0.7f) * 0.018f * walk;
+
+        if (player.isVisuallySwimming()) {
+            return eye.add(look.scale(0.8)).add(0.0, -0.36, 0.0)
+                    .add(new Vec3(-look.z, 0, look.x).normalize().scale(0.4 * sideSign));
+        }
+
+        // Horizontal right vector of the camera (ignore pitch for the lateral offset).
+        Vec3 flat = new Vec3(-look.z, 0, look.x);
+        double flatLen = Math.sqrt(flat.x * flat.x + flat.z * flat.z);
+        flat = flatLen > 1.0e-4 ? flat.scale(1.0 / flatLen) : new Vec3(1, 0, 0);
+
+        // Anchor = the projected TIP of the 3D rod model (its shaft reaches
+        // y=21 px under the firstperson transform [-74,-38,-114]), so the
+        // line leaves the visible tip, not the middle of the stick. If the
+        // model's display transforms change, tune these three constants.
+        return eye
+                .add(look.scale(0.9 + swing * 0.28))            // far forward - to the tip
+                .add(flat.scale(sideSign * (0.45 - swing * 0.22))) // along the holding arm
+                .add(0.0, -0.06 + swing * 0.5 + bob, 0.0);     // wrist rise on the cast
     }
 
     /**
@@ -107,7 +138,7 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
         float relY = (float) (y0 - y1);
         float relZ = (float) (z0 - z1);
         float length = Mth.sqrt(relX * relX + relY * relY + relZ * relZ);
-        float sag = Math.min(0.15f, length * 0.03f);
+        float sag = Math.min(0.18f, length * 0.035f);
 
         // Horizontal perpendicular for the ribbon width.
         float hlen = Mth.sqrt(relX * relX + relZ * relZ);
@@ -117,7 +148,7 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
 
         poseStack.pushPose();
         poseStack.translate((float) x1, (float) y1, (float) z1);
-        VertexConsumer line = buffer.getBuffer(RenderType.leash());
+        VertexConsumer line = buffer.getBuffer(net.minecraft.client.renderer.RenderType.leash());
         var pose = poseStack.last().pose();
         for (int i = 0; i <= SEGMENTS; ++i) {
             float f = i / (float) SEGMENTS;

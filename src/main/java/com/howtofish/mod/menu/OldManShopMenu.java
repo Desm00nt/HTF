@@ -12,7 +12,8 @@ import java.util.List;
 
 /**
  * The Old Man's shop. Shown as a simple list of buyable goods with a Ruble
- * price each; the actual buy logic lives in {@link com.howtofish.mod.client.OldManShopScreen}
+ * price each (Rod 3, Knife 4, Beer 2, Golden Bait 15, Radar 10); the actual
+ * buy logic lives in {@link com.howtofish.mod.client.OldManShopScreen}
  * (client -&gt; server "buy" network packet) to keep this menu lightweight and
  * compatible across versions without a big slot/inventory rewrite.
  */

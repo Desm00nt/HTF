@@ -15,17 +15,20 @@ import net.minecraft.world.level.block.state.BlockState;
  * <p>
  * The island is much richer now: an irregular coastline with a sandy beach
  * and shallow underwater shelf, a grassy meadow with palm trees, flowers and
- * rocks, a keeper's hut with a campfire, a proper wooden pier with the boat,
+ * rocks, a sailor's A-frame CANVAS TENT with a camp stove and Sol's stool,
  * and a grand striped lighthouse with a gallery and glass lamp room.
  * Also builds a smaller second island far away that becomes the Radar's
  * destination once the Old Man is fed a boss trophy.
  */
 public class IslandBuilder {
 
-    // Sea surface of the flat ocean world is at Y=-2 (water top block), so the
-    // island surface sits at Y=0 - just 2 blocks above the water line.
-    public static final BlockPos SPAWN_ISLAND_ORIGIN = new BlockPos(0, 0, 0);
-    public static final BlockPos SECOND_ISLAND_ORIGIN = new BlockPos(1536, 0, -1216);
+    // Water columns of the flat ocean span Y=-12..-2 (surface plane at -1).
+    // The island surface block now sits at Y=-1: the beach touches the water
+    // line directly (one block lower than before), and every column below it
+    // is filled solid down to the natural stone floor at Y=-16, so there is
+    // no dangling water pocket / void under the island any more.
+    public static final BlockPos SPAWN_ISLAND_ORIGIN = new BlockPos(0, -1, 0);
+    public static final BlockPos SECOND_ISLAND_ORIGIN = new BlockPos(1536, -1, -1216);
 
     private static final int LIGHTHOUSE_TOP_Y = 17; // Y offset of the lamp inside the lamp room
 
@@ -37,11 +40,12 @@ public class IslandBuilder {
         BlockPos origin = SPAWN_ISLAND_ORIGIN;
         buildSandIsland(level, origin, 14, 1337);
         buildLighthouse(level, origin.offset(8, 0, -8));
-        buildKeeperHut(level, origin.offset(-4, 0, 0));
+        buildTent(level, origin.offset(-4, 0, 0));
         buildPier(level, origin.offset(-6, 0, 8));
         decorateMeadow(level, origin, 1337);
         spawnBoat(level, origin.offset(-8, -1, 16));
-        spawnOldMan(level, origin.offset(2, 1, 2));
+        // Sol sits on his stool by the tent door and never leaves it.
+        spawnOldMan(level, origin.offset(-2, 1, 4));
     }
 
     public static void buildSecondIsland(ServerLevel level) {
@@ -82,24 +86,33 @@ public class IslandBuilder {
                     BlockState surface = dist > coast - 2.5 ? Blocks.SAND.defaultBlockState()
                             : Blocks.GRASS_BLOCK.defaultBlockState();
                     level.setBlock(top, surface, 3);
-                    level.setBlock(top.below(1), Blocks.SAND.defaultBlockState(), 3);
-                    level.setBlock(top.below(2), Blocks.SANDSTONE.defaultBlockState(), 3);
-                    for (int y = 3; y <= 6; y++) {
-                        level.setBlock(top.below(y), Blocks.STONE.defaultBlockState(), 3);
-                    }
-                    level.setBlock(top.below(7), Blocks.BEDROCK.defaultBlockState(), 3);
+                    fillToSeafloor(level, top);
                     // Walkable air above.
                     for (int y = 1; y <= 7; y++) {
                         level.setBlock(top.above(y), Blocks.AIR.defaultBlockState(), 3);
                     }
                 } else {
-                    // Shallow sandy shelf fading into the sea.
-                    level.setBlock(top.below(1), Blocks.SAND.defaultBlockState(), 3);
-                    level.setBlock(top.below(2), Blocks.SAND.defaultBlockState(), 3);
-                    level.setBlock(top.below(3), Blocks.STONE.defaultBlockState(), 3);
-                    level.setBlock(top.below(4), Blocks.STONE.defaultBlockState(), 3);
+                    // Shallow sandy shelf fading into the sea. Same solid
+                    // foundation all the way down - the old 4-block stub left
+                    // the sea hanging under the island edge.
+                    fillToSeafloor(level, top);
                 }
             }
+        }
+    }
+
+    /**
+     * Solid foundation for any island column: sand, sandstone, then stone all
+     * the way to the flat world's natural stone floor (Y=-16 for the spawn
+     * island's depth) - nothing can show through as a floating water pocket.
+     */
+    private static void fillToSeafloor(ServerLevel level, BlockPos top) {
+        for (int dy = 1; dy <= 15; dy++) {
+            BlockState under;
+            if (dy <= 2) under = Blocks.SAND.defaultBlockState();
+            else if (dy == 3) under = Blocks.SANDSTONE.defaultBlockState();
+            else under = Blocks.STONE.defaultBlockState();
+            level.setBlock(top.below(dy), under, 3);
         }
     }
 
@@ -285,55 +298,96 @@ public class IslandBuilder {
         level.setBlock(base.offset(-1, 1, 3), Blocks.LANTERN.defaultBlockState(), 3);
     }
 
-    /** The keeper's small hut: log corners, plank walls, stair roof, lantern. */
-    private static void buildKeeperHut(ServerLevel level, BlockPos base) {
-        BlockState wall = Blocks.OAK_PLANKS.defaultBlockState();
-        BlockState corner = Blocks.STRIPPED_OAK_LOG.defaultBlockState();
-        BlockState roof = Blocks.SPRUCE_STAIRS.defaultBlockState();
-        BlockState roofTop = Blocks.SPRUCE_SLAB.defaultBlockState();
+    /**
+     * A sailor's camp instead of the old wooden shack: a stepped A-frame
+     * canvas tent (light grey concrete reads as stretched canvas), a dark
+     * trim, trapdoor door flaps, Sol's stool in front of the door, a camp
+     * fire ring and an open supply shed (fence posts + plank roof) offside.
+     */
+    private static void buildTent(ServerLevel level, BlockPos base) {
+        BlockState canvas = Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState();
+        BlockState trim = Blocks.COBBLED_DEEPSLATE.defaultBlockState();
+        BlockState plank = Blocks.OAK_PLANKS.defaultBlockState();
+        BlockState post = Blocks.OAK_FENCE.defaultBlockState();
 
-        int w = 4, d = 5, h = 3;
-        // Walls + corners.
-        for (int x = 0; x <= w; x++) {
-            for (int z = 0; z <= d; z++) {
-                for (int y = 1; y <= h; y++) {
-                    boolean isWall = x == 0 || x == w || z == 0 || z == d;
-                    if (!isWall) continue;
-                    boolean isCorner = (x == 0 || x == w) && (z == 0 || z == d);
-                    level.setBlock(base.offset(x, y, z), isCorner ? corner : wall, 3);
+        // A-frame: rows 1..4, footprint shrinking by one per side per row.
+        int half = 4; // half-width along X at row 1
+        int depth = 5; // Z extent
+        for (int row = 1; row <= 4; row++) {
+            int inset = row - 1;
+            int x0 = -half + inset;
+            int x1 = half - inset;
+            for (int z = -depth / 2; z <= depth / 2; z++) {
+                // Solid stepped walls; hollow the middle so the door shows depth.
+                for (int x = x0; x <= x1; x++) {
+                    boolean edge = x == x0 || x == x1 || z == -depth / 2 || z == depth / 2;
+                    boolean ridge = row == 4;
+                    if (edge || ridge) {
+                        level.setBlock(base.offset(x, row, z), canvas, 3);
+                    }
                 }
-                // Roof.
-                level.setBlock(base.offset(x, h + 1, z), roof, 3);
             }
         }
-        // Roof ridge.
-        for (int z = 0; z <= d; z++) {
-            level.setBlock(base.offset(w / 2, h + 2, z), roofTop, 3);
+        // Ridgepole peeking out both ends + a hanging lantern.
+        int top = 5;
+        level.setBlock(base.offset(0, top, -depth / 2 - 1), post, 3);
+        level.setBlock(base.offset(0, top, depth / 2 + 1), post, 3);
+        level.setBlock(base.offset(0, top + 1, depth / 2 + 1), Blocks.LANTERN.defaultBlockState(), 3);
+        // Dark trim band along the bottom + gold-ish pennant block on the ridge.
+        for (int z = -depth / 2; z <= depth / 2; z++) {
+            level.setBlock(base.offset(-half, 1, z), trim, 3);
+            level.setBlock(base.offset(half, 1, z), trim, 3);
         }
-        // Floor inside (in case regen happened over grass).
-        for (int x = 1; x < w; x++) {
-            for (int z = 1; z < d; z++) {
-                level.setBlock(base.offset(x, 0, z), Blocks.OAK_PLANKS.defaultBlockState(), 3);
-                level.setBlock(base.offset(x, 1, z), Blocks.AIR.defaultBlockState(), 3);
-                level.setBlock(base.offset(x, 2, z), Blocks.AIR.defaultBlockState(), 3);
-                level.setBlock(base.offset(x, 3, z), Blocks.AIR.defaultBlockState(), 3);
+        // Doorway facing +Z (toward the pier): carve 1 wide x 2 tall + flaps.
+        for (int row = 1; row <= 2; row++) {
+            level.setBlock(base.offset(0, row, depth / 2), Blocks.AIR.defaultBlockState(), 3);
+        }
+        level.setBlock(base.offset(-1, 1, depth / 2), Blocks.SPRUCE_TRAPDOOR.defaultBlockState(), 3);
+        level.setBlock(base.offset(1, 1, depth / 2), Blocks.SPRUCE_TRAPDOOR.defaultBlockState(), 3);
+        // Tent floor & a bedroll inside.
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -2; z <= 2; z++) {
+                level.setBlock(base.offset(x, 0, z), plank, 3);
             }
         }
-        // Door opening facing +X (towards the meadow) and a window.
-        level.setBlock(base.offset(w, 1, 2), Blocks.AIR.defaultBlockState(), 3);
-        level.setBlock(base.offset(w, 2, 2), Blocks.AIR.defaultBlockState(), 3);
-        level.setBlock(base.offset(2, 2, 0), Blocks.GLASS_PANE.defaultBlockState(), 3);
-        level.setBlock(base.offset(2, 2, d), Blocks.GLASS_PANE.defaultBlockState(), 3);
-        // Furnishing: lantern on a fence post, barrel, crafting table.
-        level.setBlock(base.offset(1, 1, 1), Blocks.OAK_FENCE.defaultBlockState(), 3);
-        level.setBlock(base.offset(1, 2, 1), Blocks.LANTERN.defaultBlockState(), 3);
-        level.setBlock(base.offset(1, 1, 4), Blocks.BARREL.defaultBlockState(), 3);
-        level.setBlock(base.offset(2, 1, 4), Blocks.CRAFTING_TABLE.defaultBlockState(), 3);
-        level.setBlock(base.offset(3, 1, 4), Blocks.SMOKER.defaultBlockState(), 3);
-        // Campfire outside the door.
-        level.setBlock(base.offset(w + 2, 1, 2), Blocks.CAMPFIRE.defaultBlockState(), 3);
-        level.setBlock(base.offset(w + 1, 1, 1), Blocks.OAK_FENCE.defaultBlockState(), 3);
-        level.setBlock(base.offset(w + 3, 1, 1), Blocks.OAK_FENCE.defaultBlockState(), 3);
+        // Rolled-up bedroll + a pillow (a real bed needs its foot half, and
+        // we don't want him napping during work).
+        level.setBlock(base.offset(-2, 1, -1), Blocks.BROWN_WOOL.defaultBlockState(), 3);
+        level.setBlock(base.offset(-2, 1, 0), Blocks.QUARTZ_SLAB.defaultBlockState(), 3);
+        level.setBlock(base.offset(0, 1, 0), Blocks.CYAN_CARPET.defaultBlockState(), 3);
+
+        // Sol's stool right at the door (he sits here, immortal, forever).
+        level.setBlock(base.offset(2, 0, depth / 2 + 2), Blocks.OAK_STAIRS.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.StairBlock.FACING, net.minecraft.core.Direction.SOUTH), 3);
+
+        // Camp fire ring off to the side + supply shed.
+        BlockPos fire = base.offset(-6, 0, 4);
+        level.setBlock(fire, Blocks.CAMPFIRE.defaultBlockState(), 3);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) continue;
+                level.setBlock(fire.offset(dx, -1, dz), Blocks.COBBLESTONE_WALL.defaultBlockState()
+                        .setValue(net.minecraft.world.level.block.StoneWallBlock.WATERLOGGED, false), 3);
+            }
+        }
+        BlockPos shed = base.offset(7, 0, 3);
+        for (int dx = 0; dx <= 2; dx++) {
+            for (int dz = 0; dz <= 2; dz++) {
+                level.setBlock(shed.offset(dx, 0, dz), plank, 3);
+            }
+        }
+        level.setBlock(shed.offset(0, 1, 0), post, 3);
+        level.setBlock(shed.offset(2, 1, 0), post, 3);
+        level.setBlock(shed.offset(0, 1, 2), post, 3);
+        level.setBlock(shed.offset(2, 1, 2), post, 3);
+        for (int dx = -1; dx <= 3; dx++) {
+            for (int dz = -1; dz <= 3; dz++) {
+                level.setBlock(shed.offset(dx, 2, dz), Blocks.OAK_SLAB.defaultBlockState(), 3);
+            }
+        }
+        level.setBlock(shed.offset(1, 1, 1), Blocks.BARREL.defaultBlockState(), 3);
+        level.setBlock(shed.offset(2, 1, 1), Blocks.CRAFTING_TABLE.defaultBlockState(), 3);
+        level.setBlock(shed.offset(0, 1, 1), Blocks.SMOKER.defaultBlockState(), 3);
     }
 
     /** A proper pier: 3-wide planks on fence posts with rope-style railings. */

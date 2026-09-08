@@ -24,7 +24,10 @@ public class FishingEvents {
         if (!(event.getSource().getEntity() instanceof net.minecraft.world.entity.player.Player player)) return;
         ItemStack weapon = player.getMainHandItem();
         if (weapon.getItem() instanceof KnifeItem) {
-            event.setAmount(event.getAmount() * 2.2f);
+            // Fish die in one clean slice; the boss only gets a modest boost
+            // so a knife never trivialises the fight (separate tuning knobs).
+            float mult = target instanceof BossFishEntity ? 1.5f : 2.2f;
+            event.setAmount(event.getAmount() * mult);
         }
     }
 

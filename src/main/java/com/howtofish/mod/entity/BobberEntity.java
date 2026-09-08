@@ -1,6 +1,6 @@
 package com.howtofish.mod.entity;
 
-import com.howtofish.mod.item.BaitItem;
+import com.howtofish.mod.item.BaitKind;
 import com.howtofish.mod.registry.ModEntities;
 import com.howtofish.mod.registry.ModSounds;
 import net.minecraft.core.BlockPos;
@@ -37,6 +37,10 @@ import java.util.UUID;
  * whole "fight" is visible. Once the float reaches the player the fish is set
  * down on the shore where it can be finished with the knife or released with
  * an empty hand.
+ * <p>
+ * BEER-CAN BAIT (BaitKind.CAN): with an empty can loaded there are no nibbles
+ * at all - after a long pause the float plunges HARD once. Hooking THAT bite
+ * summons the Spider Crab boss out of the deep.
  */
 public class BobberEntity extends Projectile {
 
@@ -58,6 +62,9 @@ public class BobberEntity extends Projectile {
     /** Distance the fish was hooked at, used by the HUD progress bar. */
     private static final EntityDataAccessor<Float> DATA_HOOK_DISTANCE =
             SynchedEntityData.defineId(BobberEntity.class, EntityDataSerializers.FLOAT);
+    /** True while the hooked fish makes an escape dash - the HUD flashes "CLICK!". */
+    private static final EntityDataAccessor<Boolean> DATA_STRUGGLE =
+            SynchedEntityData.defineId(BobberEntity.class, EntityDataSerializers.BOOLEAN);
 
     /** Server-side registry: player UUID -> active bobber entity id. */
     private static final Map<UUID, Integer> ACTIVE_BOBBERS = new HashMap<>();
@@ -72,6 +79,8 @@ public class BobberEntity extends Projectile {
 
     /** Server: uuid of the fish currently hooked. */
     private UUID hookedFishUuid;
+    /** Ticks since the fish was hooked - drives the dash rhythm. */
+    private int hookedTicks = 0;
     /** Extra reeling speed applied while > 0 (re-filling by pressing use again). */
     private int reelBoost = 0;
     private int struggleTimer = 0;
@@ -131,6 +140,12 @@ public class BobberEntity extends Projectile {
         this.entityData.define(DATA_OWNER_ID, 0);
         this.entityData.define(DATA_FISH_ID, -1);
         this.entityData.define(DATA_HOOK_DISTANCE, 0.0f);
+        this.entityData.define(DATA_STRUGGLE, false);
+    }
+
+    /** Client: is the fish dashing right now (HUD flashing cue)? */
+    public boolean isFishStruggling() {
+        return this.entityData.get(DATA_STRUGGLE);
     }
 
     public int getState() {
@@ -161,18 +176,12 @@ public class BobberEntity extends Projectile {
         return this.entityData.get(DATA_HOOK_DISTANCE);
     }
 
-    /** True if the ROD currently held by the player has a bait inserted (rod menu). */
-    public static boolean hasBait(Player player) {
-        for (ItemStack s : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
-            if (s.getItem() instanceof com.howtofish.mod.item.FishingRodCustomItem
-                    && !com.howtofish.mod.item.FishingRodCustomItem.getBait(s).isEmpty()) {
-                return true;
-            }
-        }
-        return false;
+    /** The bait kind loaded in the player's held rod - the only lever fish/boss behavior uses. */
+    public static BaitKind baitKind(Player player) {
+        return BaitKind.ofHeldRod(player);
     }
 
-    /** Server: consume one use of the bait in the held rod (beer = 1 use, golden = 15). */
+    /** Server: consume one use of the bait in the held rod (can = 1 use, golden = 15). */
     private static void consumeBait(Player player) {
         for (ItemStack s : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
             if (s.getItem() instanceof com.howtofish.mod.item.FishingRodCustomItem) {
@@ -224,9 +233,16 @@ public class BobberEntity extends Projectile {
             this.setDeltaMovement(Vec3.ZERO);
             this.setState(STATE_BOBBING);
             Player player = this.getOwner() instanceof Player p ? p : null;
-            boolean baited = player != null && hasBait(player);
-            // Baited casts attract fish twice as fast.
-            this.biteCooldown = (baited ? 40 : 80) + this.random.nextInt(baited ? 60 : 120);
+            BaitKind kind = player == null ? BaitKind.NONE : baitKind(player);
+            switch (kind) {
+                case CAN -> {
+                    // The crab takes its time... then commits. One plunge, no nibbles.
+                    this.biteCooldown = 110 + this.random.nextInt(110);
+                }
+                // Golden bait attracts fish roughly twice as fast.
+                case GOLDEN -> this.biteCooldown = 40 + this.random.nextInt(60);
+                default -> this.biteCooldown = 80 + this.random.nextInt(120);
+            }
         } else if (this.onGround || !this.level.noCollision(this, this.getBoundingBox())) {
             this.setState(STATE_GROUNDED);
             this.playSplash(0.4f, 1.4f);
@@ -240,6 +256,17 @@ public class BobberEntity extends Projectile {
         }
         this.setDeltaMovement(this.getDeltaMovement().scale(0.8).add(0, 0.02, 0));
         if (--this.biteCooldown <= 0) {
+            if (baitKind(player) == BaitKind.CAN) {
+                // No teasing nibbles with a beer can - one massive plunge. LONGER window.
+                this.biteTicks = 45 + this.random.nextInt(15);
+                this.setState(STATE_BITE);
+                this.playSplash(1.4f, 0.5f);
+                if (this.level instanceof ServerLevel sl) {
+                    sl.sendParticles(ParticleTypes.SPLASH, this.getX(), this.getY() + 0.2, this.getZ(),
+                            22, 0.4, 0.15, 0.4, 0.2);
+                }
+                return;
+            }
             this.nibblesLeft = 1 + this.random.nextInt(3);
             this.nibblePhaseTicks = 0;
             this.setState(STATE_NIBBLE);
@@ -299,7 +326,12 @@ public class BobberEntity extends Projectile {
 
     /** Hook: the fish that bit is now attached and will be pulled out of the water. */
     private void hookFish(Player player) {
-        FishType type = FishType.roll(this.random, hasBait(player));
+        if (baitKind(player) == BaitKind.CAN && noBossNearby(player)) {
+            consumeBait(player);
+            summonBoss(player);
+            return;
+        }
+        FishType type = FishType.roll(this.random, baitKind(player).premiumFish);
         consumeBait(player);
         CustomFishEntity fish = new CustomFishEntity(ModEntities.CUSTOM_FISH.get(), this.level);
         fish.setFishType(type);
@@ -327,6 +359,8 @@ public class BobberEntity extends Projectile {
         player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
                 "message.howtofish.hooked", net.minecraft.network.chat.Component.translatable(
                         "fish.howtofish." + type.getId())), true);
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                "message.howtofish.reel_now"), true);
     }
 
     /**
@@ -353,17 +387,42 @@ public class BobberEntity extends Projectile {
             return;
         }
 
-        // Reel speed: slow base + boost while the player actively pulls (PKM).
-        double speed = 0.045;
+        // THE FIGHT: the fish reels YOU back in bursts. Clicking (use) buys
+        // you real progress; doing nothing lets a heavy fish drag the float
+        // away until the line snaps at the limit. Heavier fish dash harder.
+        this.hookedTicks++;
+        boolean dash = (this.hookedTicks % 80) < 26;
+        if (this.entityData.get(DATA_STRUGGLE) != dash) {
+            this.entityData.set(DATA_STRUGGLE, dash);
+        }
+        double strength = 0.016 + Mth.clamp(fish.getMaxHealth() * 0.004f, 0.01f, 0.06f);
+        double drag = dash ? strength + 0.075 : strength;
+
+        double speed = 0.05;
         if (this.reelBoost > 0) {
             this.reelBoost--;
-            speed += 0.085;
+            speed += 0.16;   // each right-click is a strong pull
         }
+        double net = speed - drag;
         Vec3 dirH = new Vec3(diff.x / horiz, 0, diff.z / horiz);
-        double step = Math.min(speed, Math.max(0.0, horiz - 1.8));
+        double step = Math.min(Math.max(net, -(strength + 0.1)), Math.max(0.0, horiz - 1.8));
+        if (horiz > 3.0) {
+            step = Math.max(step, -(strength + 0.1)); // can be dragged away
+        }
         // Glide along the water surface: keep the float at the surface height.
         double surfaceY = findSurfaceY();
         this.setPos(this.getX() + dirH.x * step, surfaceY, this.getZ() + dirH.z * step);
+
+        if (horiz > 28.0) {
+            // Too far - the line gives up.
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.howtofish.fish_escaped"), true);
+            this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
+                    SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 0.7f, 1.6f);
+            this.discardAndClean();
+            return;
+        }
+        this.entityData.set(DATA_HOOK_DISTANCE, (float) Math.max(2.2, horiz));
         this.setYRot((float) (Mth.atan2(dirH.z, dirH.x) * (180F / Math.PI)) - 90.0f);
 
         // The fish swims BEHIND the float with a lively sideways struggle.
@@ -401,6 +460,28 @@ public class BobberEntity extends Projectile {
                         8, 0.25, 0.1, 0.25, 0.1);
             }
         }
+    }
+
+    private boolean noBossNearby(Player player) {
+        return this.level.getEntitiesOfClass(BossFishEntity.class,
+                player.getBoundingBox().inflate(48.0), BossFishEntity::isAlive).isEmpty();
+    }
+
+    /**
+     * The can bite is not a fish: hooking it triggers the BOSS. All crab
+     * internals (sound, FX, music, targeting) live in
+     * {@link BossFishEntity#summonAt} - the fishing code only says
+     * "summon it HERE", which keeps fish and boss systems decoupled.
+     */
+    private void summonBoss(Player player) {
+        BossFishEntity boss = BossFishEntity.summonAt(this.level, this.position(), player);
+        if (boss != null) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.howtofish.boss_bite"), true);
+            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.howtofish.boss_summoned"));
+        }
+        this.discardAndClean();
     }
 
     /** Water surface height at the float's position, searching up/down a little. */

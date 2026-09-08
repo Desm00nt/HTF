@@ -1,7 +1,6 @@
 package com.howtofish.mod.menu;
 
-import com.howtofish.mod.item.BaitItem;
-import com.howtofish.mod.item.BeerItem;
+import com.howtofish.mod.item.BaitKind;
 import com.howtofish.mod.item.FishingRodCustomItem;
 import com.howtofish.mod.registry.ModMenuTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -16,8 +15,10 @@ import net.minecraft.world.item.ItemStack;
 /**
  * The rod's bait menu - opened by pressing "B" while holding the fishing rod.
  * Shows a single BAIT slot (stored directly in the rod's NBT) plus the
- * player's inventory. Accepted baits: Beer (one catch) and the Golden Bait
- * (15 catches). With any bait equipped, expensive fish bite much faster.
+ * player's inventory. Accepted baits are defined by {@link BaitKind}: the
+ * EMPTY BEER CAN (one cast - the Spider Crab's lure: no nibbles, one deep
+ * plunge, hooking summons the boss) and the GOLDEN BAIT (15 casts, makes
+ * expensive fish bite faster). Add new baits in BaitKind, not here.
  */
 public class RodBaitMenu extends AbstractContainerMenu {
 
@@ -71,7 +72,7 @@ public class RodBaitMenu extends AbstractContainerMenu {
         }
     }
 
-    /** Only Beer or the Golden Bait may go into the rod's bait slot. */
+    /** Only items known to {@link BaitKind} may go into the rod's bait slot. */
     private static class BaitSlot extends Slot {
         BaitSlot(Container container, int index, int x, int y) {
             super(container, index, x, y);
@@ -79,7 +80,7 @@ public class RodBaitMenu extends AbstractContainerMenu {
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            return stack.getItem() instanceof BaitItem || stack.getItem() instanceof BeerItem;
+            return BaitKind.of(stack) != BaitKind.NONE;
         }
 
         @Override
@@ -110,7 +111,7 @@ public class RodBaitMenu extends AbstractContainerMenu {
 
         // Inventory -> bait slot (only baits, only if the bait slot is free).
         ItemStack stack = from.getItem();
-        if (!(stack.getItem() instanceof BaitItem) && !(stack.getItem() instanceof BeerItem)) {
+        if (BaitKind.of(stack) == BaitKind.NONE) {
             return ItemStack.EMPTY;
         }
         Slot baitSlot = this.slots.get(0);

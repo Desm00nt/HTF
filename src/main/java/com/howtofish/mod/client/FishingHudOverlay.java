@@ -39,12 +39,12 @@ public class FishingHudOverlay extends GuiComponent {
         int state = bobber.getState();
 
         int boxW = 96;
-        int boxH = state == BobberEntity.STATE_HOOKED ? 34 : 26;
+        int boxH = state == BobberEntity.STATE_HOOKED ? 40 : 26;
         int x = w - boxW - 6;
         int y = h / 2 - boxH / 2;
 
-        fill(pose, x, y, x + boxW, y + boxH, 0xA0000000);
-        fill(pose, x, y, x + boxW, y + 1, 0xFF5A7A8C);
+        // Unified dialect: same panel language as the radar bar (GuiStyle).
+        GuiStyle.panel(pose, x, y, boxW, boxH, false);
 
         if (state == BobberEntity.STATE_BITE) {
             // Flashing "HIT IT!" alert.
@@ -55,18 +55,14 @@ public class FishingHudOverlay extends GuiComponent {
             Component hint = Component.translatable("hud.howtofish.bite_hint");
             mc.font.draw(pose, hint, x + boxW / 2.0f - mc.font.width(hint) / 2.0f, y + 16, 0xFFE8E8E8);
         } else if (state == BobberEntity.STATE_HOOKED) {
-            Component label = Component.translatable("hud.howtofish.pulling");
-            mc.font.draw(pose, label, x + 5, y + 5, 0xFFBFE8FF);
-
             CustomFishEntity fish = bobber.getSyncedFish();
-            if (fish != null) {
-                Component fishName = Component.translatable("fish.howtofish." + fish.getFishType().getId());
-                int color = fish.getFishType().getColor();
-                mc.font.draw(pose, fishName, x + boxW / 2.0f - mc.font.width(fishName) / 2.0f, y + 15,
-                        0xFF000000 | color);
-            }
+            Component fishName = fish != null
+                    ? Component.translatable("fish.howtofish." + fish.getFishType().getId())
+                    : Component.translatable("hud.howtofish.pulling");
+            mc.font.draw(pose, fishName, x + boxW / 2.0f - mc.font.width(fishName) / 2.0f, y + 4,
+                    fish != null ? 0xFF000000 | fish.getFishType().getColor() : 0xFFBFE8FF);
 
-            // Progress: distance reeled in since the hook-up.
+            // Progress: distance reeled in since the hook-up, in percent.
             float hookDist = bobber.getHookDistance();
             float span = Math.max(4.0f, hookDist - 2.0f);
             float progress = Mth.clamp(1.0f - (player.distanceTo(bobber) - 2.0f) / span, 0.02f, 1.0f);
@@ -76,6 +72,20 @@ public class FishingHudOverlay extends GuiComponent {
             fill(pose, barX, barY, barX + barW, barY + 4, 0xFF2A3A44);
             fill(pose, barX, barY, barX + (int) (barW * progress), barY + 4, 0xFF38D0A0);
             fill(pose, barX + (int) (barW * progress) - 1, barY - 1, barX + (int) (barW * progress) + 1, barY + 5, 0xFFE8FFF6);
+            String pct = (int) (progress * 100) + "%";
+            mc.font.drawShadow(pose, pct, x + boxW - mc.font.width(pct) - 5, y + 14, 0xFFBFE8FF);
+
+            // Flashing command while the fish dashes: the ONLY moment it matters
+            // to click - teaching the mechanic right where it used to confuse.
+            if (bobber.isFishStruggling()) {
+                boolean bright = ((int) (time * 10.0f)) % 2 == 0;
+                Component go = Component.translatable("hud.howtofish.click_now");
+                mc.font.draw(pose, go, x + boxW / 2.0f - mc.font.width(go) / 2.0f, y + 23,
+                        bright ? 0xFFFF4040 : 0xFFFFE14D);
+            } else {
+                Component ok = Component.translatable("hud.howtofish.hold");
+                mc.font.draw(pose, ok, x + boxW / 2.0f - mc.font.width(ok) / 2.0f, y + 23, 0xFF7FA8B8);
+            }
         } else {
             Component text = Component.translatable("hud.howtofish.waiting");
             mc.font.draw(pose, text, x + boxW / 2.0f - mc.font.width(text) / 2.0f, y + 6, 0xFF9FC3D4);

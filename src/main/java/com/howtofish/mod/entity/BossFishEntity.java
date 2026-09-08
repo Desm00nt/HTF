@@ -43,16 +43,22 @@ import javax.annotation.Nullable;
  * The "Spider Crab" BOSS - a real crab now, not an oversized fish.
  *
  * Behaviour:
- * - climbs out of the water onto the island and constantly chases the player,
- * - periodically LEAPS at the player (aggressive jumps),
- * - melee swipes knock the player back, after every swipe the crab FREEZES
- *   for ~2 seconds - the window to hit it back,
- * - special attack: the crab freezes & shakes, a RED CIRCLE appears on the
- *   ground and follows the player for ~3.5 seconds, then the crab JUMPS onto
- *   that spot dealing heavy area damage,
+ * - climbs out of the water onto the island and chases the player MANIACALLY
+ *   (fast, weaving scuttle; no ground-navigation pathfinding needed),
+ * - leaps constantly - lunges on land and splash-hops through the shallows,
+ * - melee swipes knock the player back; after every swipe the crab FREEZES
+ *   for a moment - the window to hit it back,
+ * - special attack: the crab crouches & shakes, a growing RED CIRCLE marks
+ *   the target's spot for ~3.5 s; when the telegraph ENDS the spot is LOCKED
+ *   (synced as DATA_LEAP_POS) and the crab then flies EXACTLY to that circle
+ *   - what you see is where you get hit - dealing heavy area damage and
+ *   stunning itself on landing,
  * - an epic royalty-free boss track starts on summon and stops on death.
  *
- * Summoned by throwing an Empty Beer Can into the water.
+ * Summoned by catching it: put an EMPTY BEER CAN (BaitKind.CAN, obtained from
+ * Old Sol) into the rod's bait slot (press B) and cast into the sea - the
+ * bite is the boss. The crab logic never touches items directly; fish and
+ * boss are decoupled behind BaitKind (see the summon helper below).
  */
 public class BossFishEntity extends Monster {
 
@@ -66,20 +72,54 @@ public class BossFishEntity extends Monster {
     /** Remaining telegraph ticks - drives the red circle animation client-side. */
     private static final EntityDataAccessor<Integer> DATA_TELE_TICKS =
             SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.INT);
+    /** THE spot of the ultimate jump: circle & landing are the same point, synced to clients. */
+    private static final EntityDataAccessor<Float> DATA_LEAP_X =
+            SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_LEAP_Y =
+            SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_LEAP_Z =
+            SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.FLOAT);
 
     public static final int TELEGRAPH_TIME = 70;
-    private static final int STUN_TIME = 45;
-    private static final int BIG_STUN_TIME = 70;
+    private static final int STUN_TIME = 32;
+    private static final int BIG_STUN_TIME = 55;
 
     private int stateTimer = 0;
-    private int jumpCooldown = 40;
-    private int attackCooldown = 0;
-    private int specialCooldown = 160;
+    private int jumpCooldown = 20;
+    private int specialCooldown = 90;
     private int waterTicks = 0;
     /** Server-side boss health bar (vanilla renders it at the top of the screen). */
     private final ServerBossEvent bossBar = new ServerBossEvent(
             Component.translatable("entity.howtofish.boss_fish"),
             BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
+
+    /**
+     * THE one and only way the boss enters the world: the fishing bobber (or
+     * anything else later - quests, commands) calls this with a position.
+     * Boss internals (music, FX, targeting) live HERE, so fish and boss code
+     * stay decoupled from each other.
+     */
+    @Nullable
+    public static BossFishEntity summonAt(Level level, Vec3 pos, @Nullable Player trigger) {
+        if (level.isClientSide) return null;
+        BossFishEntity boss = new BossFishEntity(com.howtofish.mod.registry.ModEntities.BOSS_FISH.get(), level);
+        boss.setPos(pos.x, pos.y + 0.1, pos.z);
+        level.addFreshEntity(boss);
+        if (trigger != null) {
+            boss.setTarget(trigger);
+        }
+        level.playSound(null, boss.blockPosition(), ModSounds.BOSS_ROAR.get(),
+                SoundSource.HOSTILE, 1.7f, 0.75f);
+        level.playSound(null, boss.blockPosition(), ModSounds.BOSS_MUSIC.get(),
+                SoundSource.RECORDS, 1.5f, 1.0f);
+        if (level instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.SPLASH, pos.x, pos.y + 0.3, pos.z,
+                    40, 0.9, 0.4, 0.9, 0.35);
+            sl.sendParticles(ParticleTypes.CLOUD, pos.x, pos.y, pos.z,
+                    18, 0.8, 0.2, 0.8, 0.02);
+        }
+        return boss;
+    }
 
     public BossFishEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -93,10 +133,10 @@ public class BossFishEntity extends Monster {
         return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 80.0d)
                 .add(Attributes.ATTACK_DAMAGE, 7.0d)
-                .add(Attributes.MOVEMENT_SPEED, 0.30d)
+                .add(Attributes.MOVEMENT_SPEED, 0.34d)
                 .add(Attributes.ARMOR, 6.0d)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.8d)
-                .add(Attributes.FOLLOW_RANGE, 40.0d);
+                .add(Attributes.FOLLOW_RANGE, 56.0d);
     }
 
     @Override
@@ -110,7 +150,31 @@ public class BossFishEntity extends Monster {
         super.defineSynchedData();
         this.entityData.define(DATA_STATE, STATE_CHASE);
         this.entityData.define(DATA_TELE_TICKS, 0);
+        this.entityData.define(DATA_LEAP_X, 0.0f);
+        this.entityData.define(DATA_LEAP_Y, 0.0f);
+        this.entityData.define(DATA_LEAP_Z, 0.0f);
     }
+
+    /** Client: where the red circle / the inevitable landing point is. */
+    public Vec3 getLeapTarget() {
+        return new Vec3(this.entityData.get(DATA_LEAP_X), this.entityData.get(DATA_LEAP_Y),
+                this.entityData.get(DATA_LEAP_Z));
+    }
+
+    public boolean hasLeapTarget() {
+        return this.entityData.get(DATA_LEAP_X) != 0.0f || this.entityData.get(DATA_LEAP_Z) != 0.0f;
+    }
+
+    private void setLeapTarget(Vec3 pos) {
+        // Written together every tick, read together every render - a frame of
+        // tearing on a 20 Hz sync is invisible for a ground marker.
+        this.entityData.set(DATA_LEAP_X, (float) pos.x);
+        this.entityData.set(DATA_LEAP_Y, (float) pos.y);
+        this.entityData.set(DATA_LEAP_Z, (float) pos.z);
+    }
+
+    private int leapFlight = 0;
+    private int leapFlightTotal = 16;
 
     public int getBossState() {
         return this.entityData.get(DATA_STATE);
@@ -127,7 +191,7 @@ public class BossFishEntity extends Monster {
     @Override
     public void tick() {
         super.tick();
-        // Keep the boss bar in sync with the health.
+        // Keep the boss bar in sync with the health & flash white in the air.
         this.bossBar.setProgress(Mth.clamp(this.getHealth() / this.getMaxHealth(), 0.0f, 1.0f));
         if (this.level.isClientSide) {
             return;
@@ -135,7 +199,6 @@ public class BossFishEntity extends Monster {
 
         LivingEntity target = getTarget();
         int state = getBossState();
-        if (attackCooldown > 0) attackCooldown--;
 
         switch (state) {
             case STATE_CHASE -> tickChase(target);
@@ -163,7 +226,11 @@ public class BossFishEntity extends Monster {
             if (this.getY() < target.getY() - 0.5) yPull = 0.05;
             else yPull = 0.015;
         }
-        this.setDeltaMovement(this.getDeltaMovement().scale(0.6).add(dir.scale(speed)).add(0, yPull, 0));
+        // Erratic sideways weave while closing in - hard to kite, fun to fight.
+        Vec3 perp = new Vec3(-dir.z, 0, dir.x);
+        double zig = Math.sin(this.tickCount * 0.16 + this.getId()) * 0.35 * Math.min(1.0, horiz / 8.0);
+        this.setDeltaMovement(this.getDeltaMovement().scale(0.6)
+                .add(dir.scale(speed)).add(perp.scale(zig * speed)).add(0, yPull, 0));
         this.hasImpulse = true;
         this.hurtMarked = true;
 
@@ -192,33 +259,63 @@ public class BossFishEntity extends Monster {
         }
         double dist = this.distanceTo(target);
 
-        // Scuttle towards the player (manual locomotion - navigation often
-        // cannot path out of water, which froze the old boss in place).
-        moveTowards(target, 0.18);
+        // FRENZIED scuttle (manual locomotion - navigation often cannot path
+        // out of water, which froze the old boss in place). Faster from far
+        // away so it never stops coming at you.
+        double speed = dist > 10.0 ? 0.30 : 0.22;
+        moveTowards(target, speed);
 
-        // Aggressive jump towards the player.
-        if (this.onGround && --this.jumpCooldown <= 0 && dist < 14.0) {
-            Vec3 dir = target.position().subtract(this.position());
-            Vec3 horiz = new Vec3(dir.x, 0, dir.z);
-            if (horiz.lengthSqr() > 0.01) {
-                horiz = horiz.normalize();
-                this.setDeltaMovement(horiz.scale(0.55).add(0, 0.58, 0));
-                this.hurtMarked = true;
-                playBossSound(SoundEvents.SPIDER_AMBIENT, 0.9f, 0.7f);
-            }
-            this.jumpCooldown = 30 + this.random.nextInt(30);
+        // Chitinous scuttle ticks (dry turtle-egg clicks, pitched down/up -
+        // no spider sounds anywhere on this crab).
+        if (this.onGround && this.tickCount % 14 == 0) {
+            playBossSound(SoundEvents.TURTLE_EGG_CRACK, 0.7f, 1.7f + this.random.nextFloat() * 0.4f);
         }
 
-        // Melee swipe -> then freeze.
-        if (dist < 2.9 && attackCooldown <= 0) {
+        // It jumps like a maniac - lunges on land, splash-hops through the shallows.
+        this.jumpCooldown--;
+        if (this.jumpCooldown <= 0 && dist > 2.6 && dist < 24.0) {
+            if (!this.isInWater() && this.onGround) {
+                Vec3 dir = target.position().subtract(this.position());
+                Vec3 horiz = new Vec3(dir.x, 0, dir.z);
+                if (horiz.lengthSqr() > 0.01) {
+                    horiz = horiz.normalize();
+                    float power = 0.62f + (float) Math.min(dist, 16.0) * 0.015f;
+                    this.setDeltaMovement(horiz.scale(power).add(0, 0.62, 0));
+                    this.hurtMarked = true;
+                    // Launch: a deep shell crack, not a spider hiss.
+                    playBossSound(SoundEvents.TURTLE_EGG_BREAK, 1.15f, 0.55f + this.random.nextFloat() * 0.15f);
+                }
+                this.jumpCooldown = 10 + this.random.nextInt(14);
+            } else if (this.isInWater()) {
+                Vec3 dir = target.position().subtract(this.position());
+                Vec3 horiz = new Vec3(dir.x, 0, dir.z);
+                if (horiz.lengthSqr() > 0.01) {
+                    horiz = horiz.normalize();
+                    this.setDeltaMovement(horiz.scale(0.45).add(0, 0.38, 0));
+                    this.hurtMarked = true;
+                }
+                this.jumpCooldown = 16 + this.random.nextInt(12);
+                if (this.level instanceof ServerLevel sl) {
+                    sl.sendParticles(ParticleTypes.SPLASH, this.getX(), this.getY() + 0.5, this.getZ(),
+                            10, 0.5, 0.2, 0.5, 0.1);
+                }
+            } else {
+                this.jumpCooldown = 4;
+            }
+        }
+
+        // Melee swipe -> then freeze (punish window, shorter than before).
+        if (dist < 3.1) {
             doSwipe(target);
             enterStun(STUN_TIME);
             return;
         }
 
         // Special attack setup.
-        if (--this.specialCooldown <= 0 && dist < 16.0 && this.onGround) {
+        if (--this.specialCooldown <= 0 && dist < 18.0 && this.onGround) {
             enterTelegraph();
+        } else if (this.specialCooldown < 40 && dist >= 18.0) {
+            this.specialCooldown = 60 + this.random.nextInt(40);
         }
     }
 
@@ -229,6 +326,8 @@ public class BossFishEntity extends Monster {
         target.push(kb.x * 0.9, 0.45, kb.z * 0.9);
         target.hurtMarked = true;
         playBossSound(SoundEvents.PLAYER_ATTACK_SWEEP, 1.2f, 0.8f);
+        // Chitin impact layered on top of the whoosh.
+        playBossSound(SoundEvents.ARMOR_STAND_HIT, 1.0f, 0.7f);
     }
 
     private void enterStun(int time) {
@@ -243,7 +342,7 @@ public class BossFishEntity extends Monster {
         this.setDeltaMovement(this.getDeltaMovement().scale(0.5));
         if (--this.stateTimer <= 0) {
             setBossState(STATE_CHASE);
-            this.jumpCooldown = 10;
+            this.jumpCooldown = 6;
         }
     }
 
@@ -252,7 +351,9 @@ public class BossFishEntity extends Monster {
         this.stateTimer = TELEGRAPH_TIME;
         this.entityData.set(DATA_TELE_TICKS, TELEGRAPH_TIME);
         getNavigation().stop();
-        playBossSound(SoundEvents.SPIDER_AMBIENT, 1.6f, 0.55f);
+        // Grounding warble: ravager roar pitched down + rapid pincer clicks.
+        playBossSound(SoundEvents.RAVAGER_ROAR, 1.1f, 0.72f);
+        playBossSound(SoundEvents.TURTLE_EGG_CRACK, 1.3f, 0.7f);
     }
 
     private void tickTelegraph(@Nullable LivingEntity target) {
@@ -261,6 +362,12 @@ public class BossFishEntity extends Monster {
         this.getNavigation().stop();
         this.setDeltaMovement(this.getDeltaMovement().scale(0.3));
         this.entityData.set(DATA_TELE_TICKS, Math.max(0, this.stateTimer));
+
+        // The circle TRACKS the player while charging and the position stays
+        // synced - so the client always draws exactly the spot we will hit.
+        if (target != null && target.isAlive()) {
+            this.setLeapTarget(target.position());
+        }
 
         // Server-side red circle particles as well (reliable for all clients):
         // a glowing ring of red dust around the target, pulsing each few ticks.
@@ -288,25 +395,57 @@ public class BossFishEntity extends Monster {
 
     private void startLeap(@Nullable LivingEntity target) {
         setBossState(STATE_LEAPING);
-        this.stateTimer = 35;
-        Vec3 landing = target != null ? target.position() : this.position();
-        int flight = 16;
-        double dx = landing.x - this.getX();
-        double dy = landing.y - this.getY() + 0.5;
-        double dz = landing.z - this.getZ();
-        double vy = dy / flight + 0.04 * flight;
-        this.setDeltaMovement(new Vec3(dx / flight * 1.2, vy, dz / flight * 1.2));
+        this.stateTimer = 60;
+        // FREEZE the aim: this is where the circle sits now, come what may.
+        Vec3 landing = target != null && target.isAlive() ? target.position() : getLeapTarget();
+        if (landing.x == 0.0 && landing.z == 0.0) landing = this.position();
+        // (sentinel-zero from the synced floats; see hasLeapTarget)
+        this.setLeapTarget(landing);
+        double dxl = landing.x - this.getX();
+        double dzl = landing.z - this.getZ();
+        double horiz = Math.sqrt(dxl * dxl + dzl * dzl);
+        this.leapFlight = 0;
+        this.leapFlightTotal = Mth.clamp((int) (horiz * 1.1) + 12, 12, 30);
+        this.setDeltaMovement(0, 0.55, 0);
         this.hurtMarked = true;
         playBossSound(ModSounds.BOSS_ROAR.get(), 1.4f, 1.0f);
     }
 
     private void tickLeaping(@Nullable LivingEntity target) {
-        // Airborne - let physics do the work, then slam down.
+        // Steer back onto the locked circle EVERY tick: knockback, blocks or
+        // lag can bend the flight, but it always terminates at the spot the
+        // player watched for 3.5 seconds - the "ultimate", not a suggestion.
+        this.leapFlight++;
+        Vec3 to = getLeapTarget().subtract(this.position());
+        double rem = Math.max(1.0, this.leapFlightTotal - this.leapFlight);
+        double arc = 0.55 * Mth.sin((float) Math.PI * this.leapFlight / this.leapFlightTotal);
+        this.setDeltaMovement(new Vec3(to.x / rem, to.y / rem + 0.085 + arc, to.z / rem));
+        this.hurtMarked = true;
+
         if (this.level instanceof ServerLevel sl && this.tickCount % 2 == 0) {
             sl.sendParticles(ParticleTypes.POOF, this.getX(), this.getY() + 0.5, this.getZ(),
                     2, 0.2, 0.1, 0.2, 0.01);
+            // The circle STAYS on the ground where it will land - dust ring
+            // under the locked target, so even mid-flight you can read the hit.
+            Vec3 lt = getLeapTarget();
+            DustParticleOptions red = new DustParticleOptions(new Vector3f(1.0f, 0.12f, 0.12f), 1.5f);
+            double yy = this.level.getBlockState(new net.minecraft.core.BlockPos(
+                    Mth.floor(lt.x), Mth.floor(lt.y), Mth.floor(lt.z))).isAir()
+                    ? lt.y : Mth.floor(lt.y) + 1.05;
+            for (int i = 0; i < 18; i++) {
+                double angle = Math.PI * 2 * i / 18.0 + this.tickCount * 0.12;
+                sl.sendParticles(red, lt.x + Math.cos(angle) * 2.4, yy, lt.z + Math.sin(angle) * 2.4,
+                        1, 0.0, 0.0, 0.0, 0.0);
+            }
         }
-        if (this.onGround || --this.stateTimer <= 0) {
+        if (this.onGround && this.leapFlight >= 4 || this.leapFlight >= this.leapFlightTotal) {
+            // Snap to the exact circle centre for the slam so damage and FX
+            // match the marker pixel-for-pixel.
+            Vec3 landing = getLeapTarget();
+            this.setDeltaMovement(Vec3.ZERO);
+            this.setPos(landing.x, Math.max(landing.y, this.getY() - 0.05), landing.z);
+            landSlam();
+        } else if (--this.stateTimer <= 0) {
             landSlam();
         }
     }
@@ -328,7 +467,7 @@ public class BossFishEntity extends Monster {
         }
         playBossSound(SoundEvents.GENERIC_EXPLODE, 1.4f, 0.75f);
         enterStun(BIG_STUN_TIME);
-        this.specialCooldown = 300 + this.random.nextInt(200);
+        this.specialCooldown = 170 + this.random.nextInt(140);
     }
 
     private void playBossSound(net.minecraft.sounds.SoundEvent sound, float vol, float pitch) {
@@ -348,6 +487,17 @@ public class BossFishEntity extends Monster {
         super.die(cause);
         if (!level.isClientSide) {
             this.spawnAtLocation(new ItemStack(ModItems.SPIDER_CRAB_SHELL.get()));
+            // 2-3 pieces of crab meat - sellable like every other catch.
+            int meat = 2 + this.random.nextInt(2);
+            for (int i = 0; i < meat; i++) {
+                net.minecraft.world.entity.item.ItemEntity drop = new net.minecraft.world.entity.item.ItemEntity(
+                        this.level, this.getX(), this.getY() + 0.4, this.getZ(),
+                        new ItemStack(ModItems.FISH_MEAT_CRAB.get()));
+                drop.setDeltaMovement(new Vec3(
+                        this.random.nextGaussian() * 0.12, 0.25 + this.random.nextFloat() * 0.15,
+                        this.random.nextGaussian() * 0.12));
+                this.level.addFreshEntity(drop);
+            }
             // Stop the boss music for everyone nearby.
             if (level instanceof ServerLevel sl) {
                 ModNetwork.CHANNEL.send(

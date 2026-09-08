@@ -6,6 +6,9 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
+import com.howtofish.mod.registry.ModSounds;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 
 import java.util.function.Supplier;
 
@@ -39,8 +42,12 @@ public class BuyItemPacket {
                             if (!player.getInventory().add(stack)) {
                                 player.drop(stack, false);
                             }
+                            player.level.playSound(null, player.blockPosition(), ModSounds.COIN.get(),
+                                    SoundSource.PLAYERS, 1.0f, 1.3f);
                             player.displayClientMessage(Component.translatable("message.howtofish.bought", offer.price()), true);
                         } else {
+                            player.level.playSound(null, player.blockPosition(), SoundEvents.VILLAGER_NO,
+                                    SoundSource.PLAYERS, 1.0f, 0.55f);
                             player.displayClientMessage(Component.translatable("message.howtofish.not_enough_money"), true);
                         }
                     });

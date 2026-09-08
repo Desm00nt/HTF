@@ -3,7 +3,6 @@ package com.howtofish.mod.entity;
 import com.howtofish.mod.economy.PlayerCurrency;
 import com.howtofish.mod.economy.PlayerQuestData;
 import com.howtofish.mod.item.BeerItem;
-import com.howtofish.mod.item.EmptyCanItem;
 import com.howtofish.mod.item.FishMeatItem;
 import com.howtofish.mod.menu.OldManShopMenu;
 import com.howtofish.mod.registry.ModItems;
@@ -25,8 +24,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
-import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -36,10 +34,16 @@ import java.util.List;
 
 /**
  * The old Lighthouse Keeper. Right-click with an empty hand to talk / open the
- * shop. Right-click while holding fish meat, beer or a boss trophy to feed him:
- * - Fish meat -&gt; earns the player Rubles, triggers the "eat" animation.
- * - Beer -&gt; he drinks it (eat animation) and returns an Empty Can (boss bait).
+ * shop. Right-click while holding fish meat or a boss trophy to feed him:
+ * - Fish meat  -&gt; earns the player Rubles, triggers the "eat" animation.
  * - Spider Crab Shell -&gt; unlocks the Radar coordinates for the next island.
+ * - Beer       -&gt; he gulps it down (drinking animation) and hands over the
+ *                EMPTY CAN - the only thing the Spider Crab answers to. The
+ *                can itself stays a passive lure: the player loads it into
+ *                the rod via the bait menu; clicking water with it does nothing.
+ * While a player stands next to him holding raw fish or a beer his eyes
+ * physically bulge out of their sockets (model animation, see OldManModel)
+ * and his nose swells.
  */
 public class OldManEntity extends PathfinderMob {
 
@@ -67,10 +71,37 @@ public class OldManEntity extends PathfinderMob {
 
     @Override
     protected void registerGoals() {
+        // Sol NEVER wanders off his stool: float safety + watching players.
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(2, new WaterAvoidingRandomStrollGoal(this, 0.7d));
-        this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 6.0f));
-        this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
+        // Head-tracks any player within 16 blocks - HEAD ONLY, the body stays
+        // seated facing the sea (LookAtPlayerGoal's onlyHead variant).
+        this.goalSelector.addGoal(2, new LookAtPlayerGoal(this, Player.class, 16.0F, true));
+    }
+
+    /** Old Sol is a fixture of the island: nothing can hurt or move him. */
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        return false;
+    }
+
+    @Override
+    public boolean isInvulnerableTo(DamageSource source) {
+        return true;
+    }
+
+    @Override
+    public boolean isPushable() {
+        return false;
+    }
+
+    @Override
+    public boolean removeWhenFarAway(double distance) {
+        return false;   // Sol never despawns
+    }
+
+    @Override
+    protected boolean shouldDespawnInPeaceful() {
+        return false;
     }
 
     @Override
@@ -95,7 +126,7 @@ public class OldManEntity extends PathfinderMob {
         Player nearest = null;
         for (Player player : this.level.players()) {
             if (player.isAlive() && this.distanceToSqr(player) < 5.0 * 5.0
-                    && isHoldingFish(player)) {
+                    && isTempting(player)) {
                 nearest = player;
                 break;
             }
@@ -110,9 +141,13 @@ public class OldManEntity extends PathfinderMob {
         }
     }
 
-    private static boolean isHoldingFish(Player player) {
-        return player.getMainHandItem().getItem() instanceof FishMeatItem
-                || player.getOffhandItem().getItem() instanceof FishMeatItem;
+    /** Raw fish meat or beer in hands: both make his eyes bulge. */
+    private static boolean isTempting(Player player) {
+        return isFishOrBeer(player.getMainHandItem()) || isFishOrBeer(player.getOffhandItem());
+    }
+
+    private static boolean isFishOrBeer(ItemStack stack) {
+        return stack.getItem() instanceof FishMeatItem || stack.getItem() instanceof BeerItem;
     }
 
     public boolean isEating() {
@@ -124,17 +159,27 @@ public class OldManEntity extends PathfinderMob {
     }
 
     private void startEating() {
+        startEating(20);
+    }
+
+    /** Plays the chew animation for {@code duration} ticks (beer is gulped longer). */
+    private void startEating(int duration) {
+        this.eatDuration = duration;
         this.entityData.set(EATING, true);
         this.entityData.set(EAT_TICKS, 0);
         this.level.playSound(null, this.blockPosition(), ModSounds.OLD_MAN_EAT.get(), SoundSource.NEUTRAL, 1.0f, 1.0f);
     }
 
+    private int eatDuration = 20;
+
     @Override
     public void tick() {
         super.tick();
-        if (isEating()) {
+        // Eating countdown runs ONLY server-side (EAT_TICKS/EATING are synced
+        // entity data; a client-side countdown would fight the server).
+        if (!this.level.isClientSide && isEating()) {
             int ticks = getEatTicks() + 1;
-            if (ticks > 20) {
+            if (ticks > this.eatDuration) {
                 this.entityData.set(EATING, false);
                 this.entityData.set(EAT_TICKS, 0);
             } else {
@@ -145,6 +190,11 @@ public class OldManEntity extends PathfinderMob {
             // Refresh the "player with fish nearby" detection a few times a second.
             if (this.tickCount % 8 == 0) {
                 updateEyePopping();
+            }
+            // Immovable prop: kill any stray horizontal drift (shoves, water).
+            if (this.tickCount % 4 == 0
+                    && Math.abs(this.getDeltaMovement().x) + Math.abs(this.getDeltaMovement().z) > 0.001) {
+                this.setDeltaMovement(0, this.getDeltaMovement().y, 0);
             }
         } else {
             // Smooth animation towards the synced target on the client.
@@ -167,15 +217,26 @@ public class OldManEntity extends PathfinderMob {
             PlayerCurrency.add(player, reward);
             startEating();
             held.shrink(1);
+            this.level.playSound(null, this.blockPosition(), ModSounds.COIN.get(),
+                    SoundSource.PLAYERS, 1.0f, 1.35f);
             player.displayClientMessage(Component.translatable("message.howtofish.fed_fish", reward), true);
             return InteractionResult.SUCCESS;
         }
 
         if (item instanceof BeerItem) {
-            startEating();
+            // He gulps the whole bottle down, belches, and returns the empty can:
+            // the ONE thing the Spider Crab answers to as a rod bait.
             held.shrink(1);
-            if (!player.getInventory().add(new ItemStack(ModItems.EMPTY_CAN.get()))) {
-                player.drop(new ItemStack(ModItems.EMPTY_CAN.get()), false);
+            startEating(44);
+            this.level.playSound(null, this.blockPosition(),
+                    net.minecraft.sounds.SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS,
+                    1.0f, 0.7f);
+            this.level.playSound(null, this.blockPosition(),
+                    net.minecraft.sounds.SoundEvents.PLAYER_BURP, SoundSource.PLAYERS,
+                    0.9f, 0.8f);
+            ItemStack can = new ItemStack(ModItems.EMPTY_CAN.get());
+            if (!player.getInventory().add(can)) {
+                player.drop(can, false);
             }
             player.displayClientMessage(Component.translatable("message.howtofish.gave_beer"), true);
             return InteractionResult.SUCCESS;
@@ -191,6 +252,8 @@ public class OldManEntity extends PathfinderMob {
         }
 
         if (held.isEmpty() && hand == InteractionHand.MAIN_HAND) {
+            this.level.playSound(null, this.blockPosition(), ModSounds.OLD_MAN_TALK.get(),
+                    SoundSource.NEUTRAL, 1.0f, 0.9f + this.random.nextFloat() * 0.2f);
             player.sendSystemMessage(Component.translatable("message.howtofish.old_man_greeting" + (this.random.nextInt(3))));
             net.minecraft.server.level.ServerPlayer sp = (net.minecraft.server.level.ServerPlayer) player;
             net.minecraftforge.network.NetworkHooks.openScreen(sp,
