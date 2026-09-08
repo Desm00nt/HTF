@@ -366,8 +366,7 @@ public class IslandBuilder {
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 if (dx == 0 && dz == 0) continue;
-                level.setBlock(fire.offset(dx, -1, dz), Blocks.COBBLESTONE_WALL.defaultBlockState()
-                        .setValue(net.minecraft.world.level.block.StoneWallBlock.WATERLOGGED, false), 3);
+                level.setBlock(fire.offset(dx, -1, dz), Blocks.COBBLESTONE_WALL.defaultBlockState(), 3);
             }
         }
         BlockPos shed = base.offset(7, 0, 3);

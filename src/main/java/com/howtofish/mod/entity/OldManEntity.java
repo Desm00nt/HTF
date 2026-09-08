@@ -23,7 +23,6 @@ import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -73,9 +72,9 @@ public class OldManEntity extends PathfinderMob {
     protected void registerGoals() {
         // Sol NEVER wanders off his stool: float safety + watching players.
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        // Head-tracks any player within 16 blocks - HEAD ONLY, the body stays
-        // seated facing the sea (LookAtPlayerGoal's onlyHead variant).
-        this.goalSelector.addGoal(2, new LookAtPlayerGoal(this, Player.class, 16.0F, true));
+        // Head-tracking is client-side cosmetics (see tick() below) - no goal,
+        // so NOTHING can ever turn his body away from the sea or walk him off
+        // the stool.
     }
 
     /** Old Sol is a fixture of the island: nothing can hurt or move him. */
@@ -201,6 +200,31 @@ public class OldManEntity extends PathfinderMob {
             float target = isEyesPopping() ? 1.0f : 0.0f;
             this.eyePopAmount += (target - this.eyePopAmount) * 0.22f;
             this.eyePopAmount = Mth.clamp(this.eyePopAmount, 0.0f, 1.0f);
+
+            // HEAD-ONLY tracking: every player within 16 blocks gets watched,
+            // but only the head turns (yHeadRot; the renderer feeds it into
+            // the model as netHeadYaw) - the seated body keeps facing the sea.
+            Player nearest = null;
+            double best = 16.0 * 16.0;
+            for (Player pl : this.level.players()) {
+                if (pl.isAlive() && !pl.isSpectator()) {
+                    double d = pl.distanceToSqr(this);
+                    if (d < best) {
+                        best = d;
+                        nearest = pl;
+                    }
+                }
+            }
+            float want = this.getYRot();
+            if (nearest != null) {
+                double dx = nearest.getX() - this.getX();
+                double dz = nearest.getZ() - this.getZ();
+                float full = (float) (Mth.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
+                float delta = Mth.wrapDegrees(full - this.getYRot());
+                delta = Mth.clamp(delta, -75.0F, 75.0F);
+                want = this.getYRot() + delta;
+            }
+            this.yHeadRot += Mth.wrapDegrees(want - this.yHeadRot) * 0.12F;
         }
     }
 

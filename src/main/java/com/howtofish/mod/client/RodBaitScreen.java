@@ -99,7 +99,7 @@ public class RodBaitScreen extends AbstractContainerScreen<RodBaitMenu> {
         pose.translate(0, 0, 20);
         Minecraft.getInstance().getItemRenderer().renderAndDecorateItem(icon, ix, rowY);
         pose.popPose();
-        drawString(poseStack, this.font, label, ix + 14, rowY + 3, color);
+        drawString(pose, this.font, label, ix + 14, rowY + 3, color);
     }
 
     private boolean isHover(int x, int y, int mx, int my) {

@@ -403,9 +403,9 @@ public class BobberEntity extends Projectile {
             this.reelBoost--;
             speed += 0.16;   // each right-click is a strong pull
         }
-        double net = speed - drag;
+        double netPull = speed - drag;
         Vec3 dirH = new Vec3(diff.x / horiz, 0, diff.z / horiz);
-        double step = Math.min(Math.max(net, -(strength + 0.1)), Math.max(0.0, horiz - 1.8));
+        double step = Math.min(Math.max(netPull, -(strength + 0.1)), Math.max(0.0, horiz - 1.8));
         if (horiz > 3.0) {
             step = Math.max(step, -(strength + 0.1)); // can be dragged away
         }

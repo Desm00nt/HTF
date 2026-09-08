@@ -188,7 +188,7 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
         leftArm.xRot = -0.06f + Mth.cos(limbSwing * 0.6662f) * swing;
 
         boolean knocked = entity.getDeltaMovement().horizontalDistanceSqr() > 0.02
-                || !entity.onGround();
+                || !entity.onGround;
         if (knocked) {
             // A rare shove (weaker now that he can't be hurt): legs flail,
             // body returns to its full stance for that beat.
