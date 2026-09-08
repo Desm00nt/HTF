@@ -1,7 +1,6 @@
 package com.howtofish.mod.item;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -16,13 +15,13 @@ import java.util.List;
  * float plunges hard, and hooking THAT bite summons the boss. One beer =
  * one summoning attempt, exactly like in the reference game where you fish
  * the crab out with a can of brew.
+ * <p>
+ * Deliberately NOT edible - you don't drink the bait!
  */
 public class BeerItem extends Item {
-    public static final FoodProperties FOOD = new FoodProperties.Builder()
-            .nutrition(1).saturationMod(0.2f).alwaysEat().build();
 
     public BeerItem(Properties properties) {
-        super(properties.food(FOOD));
+        super(properties);
     }
 
     @Override

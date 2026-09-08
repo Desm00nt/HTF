@@ -32,6 +32,7 @@ public class ModItems {
     public static final RegistryObject<Item> BAIT = ITEMS.register("bait",
             () -> new com.howtofish.mod.item.BaitItem(base().stacksTo(1)));
 
+    /** Beer - the Spider Crab's lure (kept stackable: bait for repeated expeditions). */
     public static final RegistryObject<Item> BEER = ITEMS.register("beer",
             () -> new BeerItem(base().stacksTo(8)));
 
