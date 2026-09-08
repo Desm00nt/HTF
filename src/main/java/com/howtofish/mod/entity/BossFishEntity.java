@@ -43,16 +43,18 @@ import javax.annotation.Nullable;
  * The "Spider Crab" BOSS - a real crab now, not an oversized fish.
  *
  * Behaviour:
- * - climbs out of the water onto the island and constantly chases the player,
- * - periodically LEAPS at the player (aggressive jumps),
- * - melee swipes knock the player back, after every swipe the crab FREEZES
- *   for ~2 seconds - the window to hit it back,
- * - special attack: the crab freezes & shakes, a RED CIRCLE appears on the
- *   ground and follows the player for ~3.5 seconds, then the crab JUMPS onto
- *   that spot dealing heavy area damage,
+ * - climbs out of the water onto the island and chases the player MANIACALLY
+ *   (fast, weaving scuttle; no ground-navigation pathfinding needed),
+ * - leaps constantly - lunges on land and splash-hops through the shallows,
+ * - melee swipes knock the player back; after every swipe the crab FREEZES
+ *   for a moment - the window to hit it back,
+ * - special attack: the crab crouches & shakes, a growing RED CIRCLE trails
+ *   the target for ~3.5 seconds, then the crab JUMPS onto that spot dealing
+ *   heavy area damage and stuns itself on landing,
  * - an epic royalty-free boss track starts on summon and stops on death.
  *
- * Summoned by throwing an Empty Beer Can into the water.
+ * Summoned by catching it: put a BEER into the rod's bait slot (press B) and
+ * cast into the sea - the bite is the boss.
  */
 public class BossFishEntity extends Monster {
 
@@ -68,13 +70,12 @@ public class BossFishEntity extends Monster {
             SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.INT);
 
     public static final int TELEGRAPH_TIME = 70;
-    private static final int STUN_TIME = 45;
-    private static final int BIG_STUN_TIME = 70;
+    private static final int STUN_TIME = 32;
+    private static final int BIG_STUN_TIME = 55;
 
     private int stateTimer = 0;
-    private int jumpCooldown = 40;
-    private int attackCooldown = 0;
-    private int specialCooldown = 160;
+    private int jumpCooldown = 20;
+    private int specialCooldown = 90;
     private int waterTicks = 0;
     /** Server-side boss health bar (vanilla renders it at the top of the screen). */
     private final ServerBossEvent bossBar = new ServerBossEvent(
@@ -93,10 +94,10 @@ public class BossFishEntity extends Monster {
         return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 80.0d)
                 .add(Attributes.ATTACK_DAMAGE, 7.0d)
-                .add(Attributes.MOVEMENT_SPEED, 0.30d)
+                .add(Attributes.MOVEMENT_SPEED, 0.34d)
                 .add(Attributes.ARMOR, 6.0d)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.8d)
-                .add(Attributes.FOLLOW_RANGE, 40.0d);
+                .add(Attributes.FOLLOW_RANGE, 56.0d);
     }
 
     @Override
@@ -135,7 +136,6 @@ public class BossFishEntity extends Monster {
 
         LivingEntity target = getTarget();
         int state = getBossState();
-        if (attackCooldown > 0) attackCooldown--;
 
         switch (state) {
             case STATE_CHASE -> tickChase(target);
@@ -163,7 +163,11 @@ public class BossFishEntity extends Monster {
             if (this.getY() < target.getY() - 0.5) yPull = 0.05;
             else yPull = 0.015;
         }
-        this.setDeltaMovement(this.getDeltaMovement().scale(0.6).add(dir.scale(speed)).add(0, yPull, 0));
+        // Erratic sideways weave while closing in - hard to kite, fun to fight.
+        Vec3 perp = new Vec3(-dir.z, 0, dir.x);
+        double zig = Math.sin(this.tickCount * 0.16 + this.getId()) * 0.35 * Math.min(1.0, horiz / 8.0);
+        this.setDeltaMovement(this.getDeltaMovement().scale(0.6)
+                .add(dir.scale(speed)).add(perp.scale(zig * speed)).add(0, yPull, 0));
         this.hasImpulse = true;
         this.hurtMarked = true;
 
@@ -192,33 +196,56 @@ public class BossFishEntity extends Monster {
         }
         double dist = this.distanceTo(target);
 
-        // Scuttle towards the player (manual locomotion - navigation often
-        // cannot path out of water, which froze the old boss in place).
-        moveTowards(target, 0.18);
+        // FRENZIED scuttle (manual locomotion - navigation often cannot path
+        // out of water, which froze the old boss in place). Faster from far
+        // away so it never stops coming at you.
+        double speed = dist > 10.0 ? 0.30 : 0.22;
+        moveTowards(target, speed);
 
-        // Aggressive jump towards the player.
-        if (this.onGround && --this.jumpCooldown <= 0 && dist < 14.0) {
-            Vec3 dir = target.position().subtract(this.position());
-            Vec3 horiz = new Vec3(dir.x, 0, dir.z);
-            if (horiz.lengthSqr() > 0.01) {
-                horiz = horiz.normalize();
-                this.setDeltaMovement(horiz.scale(0.55).add(0, 0.58, 0));
-                this.hurtMarked = true;
-                playBossSound(SoundEvents.SPIDER_AMBIENT, 0.9f, 0.7f);
+        // It jumps like a maniac - lunges on land, splash-hops through the shallows.
+        this.jumpCooldown--;
+        if (this.jumpCooldown <= 0 && dist > 2.6 && dist < 24.0) {
+            if (!this.isInWater() && this.onGround) {
+                Vec3 dir = target.position().subtract(this.position());
+                Vec3 horiz = new Vec3(dir.x, 0, dir.z);
+                if (horiz.lengthSqr() > 0.01) {
+                    horiz = horiz.normalize();
+                    float power = 0.62f + (float) Math.min(dist, 16.0) * 0.015f;
+                    this.setDeltaMovement(horiz.scale(power).add(0, 0.62, 0));
+                    this.hurtMarked = true;
+                    playBossSound(SoundEvents.SPIDER_AMBIENT, 0.9f, 0.7f);
+                }
+                this.jumpCooldown = 10 + this.random.nextInt(14);
+            } else if (this.isInWater()) {
+                Vec3 dir = target.position().subtract(this.position());
+                Vec3 horiz = new Vec3(dir.x, 0, dir.z);
+                if (horiz.lengthSqr() > 0.01) {
+                    horiz = horiz.normalize();
+                    this.setDeltaMovement(horiz.scale(0.45).add(0, 0.38, 0));
+                    this.hurtMarked = true;
+                }
+                this.jumpCooldown = 16 + this.random.nextInt(12);
+                if (this.level instanceof ServerLevel sl) {
+                    sl.sendParticles(ParticleTypes.SPLASH, this.getX(), this.getY() + 0.5, this.getZ(),
+                            10, 0.5, 0.2, 0.5, 0.1);
+                }
+            } else {
+                this.jumpCooldown = 4;
             }
-            this.jumpCooldown = 30 + this.random.nextInt(30);
         }
 
-        // Melee swipe -> then freeze.
-        if (dist < 2.9 && attackCooldown <= 0) {
+        // Melee swipe -> then freeze (punish window, shorter than before).
+        if (dist < 3.1) {
             doSwipe(target);
             enterStun(STUN_TIME);
             return;
         }
 
         // Special attack setup.
-        if (--this.specialCooldown <= 0 && dist < 16.0 && this.onGround) {
+        if (--this.specialCooldown <= 0 && dist < 18.0 && this.onGround) {
             enterTelegraph();
+        } else if (this.specialCooldown < 40 && dist >= 18.0) {
+            this.specialCooldown = 60 + this.random.nextInt(40);
         }
     }
 
@@ -243,7 +270,7 @@ public class BossFishEntity extends Monster {
         this.setDeltaMovement(this.getDeltaMovement().scale(0.5));
         if (--this.stateTimer <= 0) {
             setBossState(STATE_CHASE);
-            this.jumpCooldown = 10;
+            this.jumpCooldown = 6;
         }
     }
 
@@ -328,7 +355,7 @@ public class BossFishEntity extends Monster {
         }
         playBossSound(SoundEvents.GENERIC_EXPLODE, 1.4f, 0.75f);
         enterStun(BIG_STUN_TIME);
-        this.specialCooldown = 300 + this.random.nextInt(200);
+        this.specialCooldown = 170 + this.random.nextInt(140);
     }
 
     private void playBossSound(net.minecraft.sounds.SoundEvent sound, float vol, float pitch) {

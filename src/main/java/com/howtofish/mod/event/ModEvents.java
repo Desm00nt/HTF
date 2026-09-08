@@ -4,6 +4,7 @@ import com.howtofish.mod.economy.PlayerCurrency;
 import com.howtofish.mod.economy.PlayerQuestData;
 import com.howtofish.mod.network.SyncRadarPacket;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
@@ -43,7 +44,8 @@ public class ModEvents {
     /**
      * Keeps the visible hotbar to exactly THREE slots: any item that ends up
      * in hotbar slots 3-8 is silently relocated into the storage grid (9-35),
-     * and the selected slot is clamped to 0-2. Creative players are exempt.
+     * and the selected slot is clamped to 0-2 (the client is explicitly told
+     * so the highlight never desyncs). Creative players are exempt.
      */
     @SubscribeEvent
     public void onPlayerTick(TickEvent.PlayerTickEvent event) {
@@ -65,6 +67,7 @@ public class ModEvents {
         }
         if (inv.selected >= 3) {
             inv.selected = 0;
+            player.connection.send(new ClientboundSetCarriedItemPacket(0));
         }
     }
 }

@@ -16,8 +16,10 @@ import net.minecraft.world.item.ItemStack;
 /**
  * The rod's bait menu - opened by pressing "B" while holding the fishing rod.
  * Shows a single BAIT slot (stored directly in the rod's NBT) plus the
- * player's inventory. Accepted baits: Beer (one catch) and the Golden Bait
- * (15 catches). With any bait equipped, expensive fish bite much faster.
+ * player's inventory. Accepted baits: BEER (one cast - and it is the Spider
+ * Crab's lure: with beer on the line there are no nibbles, just one deep
+ * plunge, and hooking it summons the boss) and the GOLDEN BAIT (15 casts,
+ * makes expensive fish bite faster).
  */
 public class RodBaitMenu extends AbstractContainerMenu {
 

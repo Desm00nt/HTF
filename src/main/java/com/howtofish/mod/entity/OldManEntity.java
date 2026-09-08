@@ -3,7 +3,6 @@ package com.howtofish.mod.entity;
 import com.howtofish.mod.economy.PlayerCurrency;
 import com.howtofish.mod.economy.PlayerQuestData;
 import com.howtofish.mod.item.BeerItem;
-import com.howtofish.mod.item.EmptyCanItem;
 import com.howtofish.mod.item.FishMeatItem;
 import com.howtofish.mod.menu.OldManShopMenu;
 import com.howtofish.mod.registry.ModItems;
@@ -36,10 +35,13 @@ import java.util.List;
 
 /**
  * The old Lighthouse Keeper. Right-click with an empty hand to talk / open the
- * shop. Right-click while holding fish meat, beer or a boss trophy to feed him:
- * - Fish meat -&gt; earns the player Rubles, triggers the "eat" animation.
- * - Beer -&gt; he drinks it (eat animation) and returns an Empty Can (boss bait).
+ * shop. Right-click while holding fish meat or a boss trophy to feed him:
+ * - Fish meat  -&gt; earns the player Rubles, triggers the "eat" animation.
  * - Spider Crab Shell -&gt; unlocks the Radar coordinates for the next island.
+ * - Beer       -&gt; he refuses it: that is rod bait, not something to drink!
+ * While a player stands next to him holding raw fish his eyes nearly pop out
+ * (synced flag drives the renderer's surprised texture + the model's double
+ * take).
  */
 public class OldManEntity extends PathfinderMob {
 
@@ -167,17 +169,18 @@ public class OldManEntity extends PathfinderMob {
             PlayerCurrency.add(player, reward);
             startEating();
             held.shrink(1);
+            this.level.playSound(null, this.blockPosition(), ModSounds.COIN.get(),
+                    SoundSource.PLAYERS, 1.0f, 1.35f);
             player.displayClientMessage(Component.translatable("message.howtofish.fed_fish", reward), true);
             return InteractionResult.SUCCESS;
         }
 
         if (item instanceof BeerItem) {
-            startEating();
-            held.shrink(1);
-            if (!player.getInventory().add(new ItemStack(ModItems.EMPTY_CAN.get()))) {
-                player.drop(new ItemStack(ModItems.EMPTY_CAN.get()), false);
-            }
-            player.displayClientMessage(Component.translatable("message.howtofish.gave_beer"), true);
+            // He waves it away - beer is for the HOOK, not for his gullet.
+            player.displayClientMessage(Component.translatable("message.howtofish.beer_for_rod"), true);
+            this.level.playSound(null, this.blockPosition(),
+                    net.minecraft.sounds.SoundEvents.VILLAGER_NO, SoundSource.NEUTRAL,
+                    1.0f, 0.6f);
             return InteractionResult.SUCCESS;
         }
 
@@ -191,6 +194,8 @@ public class OldManEntity extends PathfinderMob {
         }
 
         if (held.isEmpty() && hand == InteractionHand.MAIN_HAND) {
+            this.level.playSound(null, this.blockPosition(), ModSounds.OLD_MAN_TALK.get(),
+                    SoundSource.NEUTRAL, 1.0f, 0.9f + this.random.nextFloat() * 0.2f);
             player.sendSystemMessage(Component.translatable("message.howtofish.old_man_greeting" + (this.random.nextInt(3))));
             net.minecraft.server.level.ServerPlayer sp = (net.minecraft.server.level.ServerPlayer) player;
             net.minecraftforge.network.NetworkHooks.openScreen(sp,

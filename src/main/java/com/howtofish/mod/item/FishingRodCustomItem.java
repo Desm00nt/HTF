@@ -26,8 +26,9 @@ import net.minecraft.world.level.Level;
  *
  * The rod also has a BAIT SLOT stored in its NBT ({@code HTFBait}). The
  * player opens the bait menu by pressing "B" with the rod in hand. Two baits
- * exist: Beer (single catch) and the Golden Bait (15 catches). A baited rod
- * attracts expensive fish and bites faster.
+ * exist: the Golden Bait (15 catches - valuable fish bite faster) and BEER,
+ * which is not for regular fish at all: with a beer on the line there are no
+ * nibbles - one deep plunge - and hooking it drags out the Spider Crab boss.
  */
 public class FishingRodCustomItem extends Item {
 

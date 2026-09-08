@@ -24,6 +24,11 @@ public class CurrencyHudOverlay extends GuiComponent {
         clientBalance = value;
     }
 
+    /** Last balance synced from the server (for shop screens etc.). */
+    public static int getClientBalance() {
+        return clientBalance;
+    }
+
     @SubscribeEvent
     public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
         if (!event.getOverlay().id().equals(VanillaGuiOverlay.EXPERIENCE_BAR.id())) return;

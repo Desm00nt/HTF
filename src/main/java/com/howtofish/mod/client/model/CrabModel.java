@@ -16,168 +16,249 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
- * A proper crab model for the boss: wide flat shell, two arms with opening
- * pincers, eight wiggling legs and eye stalks. The claws raise high while the
- * crab is leaping and droop helplessly while it is stunned.
+ * The Spider Crab boss: a wide flat shell on a pair of big pincers, standing
+ * on EIGHT long, two-segment spider legs (hip + shin) that reach all the way
+ * down to the ground, and watching you from two stalked eyes.
+ * <p>
+ * Texture: {@code entity/fish/spider_crab_boss.png}, 64x128. UV map:
+ * shell (0,0), rim (0,16), stalks/eyes (48/56, 0/4), claw arms (0,28)/(24,28),
+ * hips rows 40..52 (L at x0, R at x22), shins rows 56..68 (L at x0, R at x28),
+ * pincer tops (0,76)/(28,76), pincer bottoms (0,86)/(28,86).
  */
 public class CrabModel extends HierarchicalModel<BossFishEntity> {
     public static final ModelLayerLocation LAYER_LOCATION =
             new ModelLayerLocation(new ResourceLocation(HowToFishMod.MOD_ID, "crab_boss"), "main");
 
+    /** Baseline leg angles: hips angled slightly UP-out, shins down to the ground. */
+    private static final float HIP_UP = 0.25f;
+    private static final float SHIN_DOWN = 1.35f;
+
     private final ModelPart root;
     private final ModelPart shell;
     private final ModelPart rim;
-    private final ModelPart leftArm;
-    private final ModelPart rightArm;
-    private final ModelPart leftPincerTop;
-    private final ModelPart leftPincerBot;
-    private final ModelPart rightPincerTop;
-    private final ModelPart rightPincerBot;
-    private final ModelPart[] legs = new ModelPart[8];
+    private final ModelPart armL;
+    private final ModelPart armR;
+    private final ModelPart pincerLTop;
+    private final ModelPart pincerLBot;
+    private final ModelPart pincerRTop;
+    private final ModelPart pincerRBot;
     private final ModelPart stalkL;
     private final ModelPart stalkR;
-    private final ModelPart eyeL;
-    private final ModelPart eyeR;
+    private final ModelPart[] hips = new ModelPart[8];
+    private final ModelPart[] shins = new ModelPart[8];
 
     public CrabModel(ModelPart root) {
         this.root = root;
         this.shell = root.getChild("shell");
         this.rim = shell.getChild("rim");
-        this.leftArm = shell.getChild("left_arm");
-        this.rightArm = shell.getChild("right_arm");
-        this.leftPincerTop = leftArm.getChild("left_pincer_top");
-        this.leftPincerBot = leftArm.getChild("left_pincer_bot");
-        this.rightPincerTop = rightArm.getChild("right_pincer_top");
-        this.rightPincerBot = rightArm.getChild("right_pincer_bot");
-        for (int i = 0; i < 8; i++) {
-            this.legs[i] = shell.getChild("leg" + i);
-        }
+        this.armL = shell.getChild("arm_l");
+        this.armR = shell.getChild("arm_r");
+        this.pincerLTop = armL.getChild("pincer_l_top");
+        this.pincerLBot = armL.getChild("pincer_l_bot");
+        this.pincerRTop = armR.getChild("pincer_r_top");
+        this.pincerRBot = armR.getChild("pincer_r_bot");
         this.stalkL = shell.getChild("stalk_l");
         this.stalkR = shell.getChild("stalk_r");
-        this.eyeL = stalkL.getChild("eye_l");
-        this.eyeR = stalkR.getChild("eye_r");
+        for (int i = 0; i < 8; i++) {
+            this.hips[i] = shell.getChild("hip" + i);
+            this.shins[i] = this.hips[i].getChild("shin" + i);
+        }
     }
 
     public static LayerDefinition createBodyLayer() {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = mesh.getRoot();
 
-        // Main shell. Pivot at y=18 keeps the crab flat on the ground.
+        // Shell sits high - the long legs do the rest. Ground is at y=24.
         PartDefinition shell = root.addOrReplaceChild("shell",
-                CubeListBuilder.create().texOffs(0, 0).addBox(-7.0f, -4.0f, -5.0f, 14.0f, 5.0f, 10.0f),
-                PartPose.offset(0.0f, 19.0f, 0.0f));
+                CubeListBuilder.create().texOffs(0, 0)
+                        .addBox(-7.0f, -5.0f, -5.0f, 14.0f, 5.0f, 10.0f),
+                PartPose.offset(0.0f, 15.0f, 0.0f));
 
-        // Lower rim of the body.
         shell.addOrReplaceChild("rim",
-                CubeListBuilder.create().texOffs(0, 16).addBox(-6.0f, -1.0f, -4.0f, 12.0f, 3.0f, 8.0f),
-                PartPose.offset(0.0f, 0.5f, 0.0f));
-
-        // Arms with pincers.
-        PartDefinition leftArm = shell.addOrReplaceChild("left_arm",
-                CubeListBuilder.create().texOffs(0, 32).addBox(-1.0f, -2.0f, -1.0f, 4.0f, 4.0f, 6.0f),
-                PartPose.offsetAndRotation(-8.0f, -2.0f, -2.0f, -0.5f, 0.4f, 0.0f));
-        leftArm.addOrReplaceChild("left_pincer_top",
-                CubeListBuilder.create().texOffs(0, 40).addBox(1.0f, -2.0f, -6.0f, 5.0f, 2.0f, 6.0f),
-                PartPose.ZERO);
-        leftArm.addOrReplaceChild("left_pincer_bot",
-                CubeListBuilder.create().texOffs(0, 46).addBox(1.0f, 0.0f, -5.0f, 5.0f, 2.0f, 6.0f),
+                CubeListBuilder.create().texOffs(0, 16)
+                        .addBox(-5.5f, -1.0f, -4.0f, 11.0f, 3.0f, 8.0f),
                 PartPose.ZERO);
 
-        PartDefinition rightArm = shell.addOrReplaceChild("right_arm",
-                CubeListBuilder.create().texOffs(20, 32).addBox(-3.0f, -2.0f, -1.0f, 4.0f, 4.0f, 6.0f),
-                PartPose.offsetAndRotation(8.0f, -2.0f, -2.0f, -0.5f, -0.4f, 0.0f));
-        rightArm.addOrReplaceChild("right_pincer_top",
-                CubeListBuilder.create().texOffs(20, 40).addBox(-6.0f, -2.0f, -6.0f, 5.0f, 2.0f, 6.0f),
-                PartPose.ZERO);
-        rightArm.addOrReplaceChild("right_pincer_bot",
-                CubeListBuilder.create().texOffs(20, 46).addBox(-6.0f, 0.0f, -5.0f, 5.0f, 2.0f, 6.0f),
-                PartPose.ZERO);
+        // Claw arms out of the front sides, long pincers at their ends.
+        PartDefinition armL = shell.addOrReplaceChild("arm_l",
+                CubeListBuilder.create().texOffs(0, 28)
+                        .addBox(-6.0f, -2.0f, -2.0f, 6.0f, 4.0f, 4.0f),
+                PartPose.offsetAndRotation(-7.0f, -2.0f, -4.0f, 0.0f, -0.55f, 0.15f));
+        armL.addOrReplaceChild("pincer_l_top",
+                CubeListBuilder.create().texOffs(0, 76)
+                        .addBox(-6.0f, -2.5f, -3.0f, 6.0f, 3.0f, 6.0f),
+                PartPose.offset(-6.0f, 0.0f, 0.0f));
+        armL.addOrReplaceChild("pincer_l_bot",
+                CubeListBuilder.create().texOffs(0, 86)
+                        .addBox(-6.0f, 0.0f, -3.0f, 6.0f, 2.0f, 6.0f),
+                PartPose.offset(-6.0f, 0.0f, 0.0f));
 
-        // Eight legs: 4 per side (6px long, shared UV rows).
-        int[] legUvX = {0, 16, 32, 48, 0, 16, 32, 48};
-        int[] legUvY = {54, 54, 54, 54, 58, 58, 58, 58};
-        for (int i = 0; i < 4; i++) {
-            float z = -3.6f + i * 2.4f;
-            shell.addOrReplaceChild("leg" + (i * 2),
-                    CubeListBuilder.create().texOffs(legUvX[i * 2], legUvY[i * 2])
-                            .addBox(-6.0f, -1.0f, -1.0f, 6.0f, 2.0f, 2.0f),
-                    PartPose.offsetAndRotation(-7.0f, -1.0f, z, 0.0f, 0.0f, 0.6f));
-            shell.addOrReplaceChild("leg" + (i * 2 + 1),
-                    CubeListBuilder.create().texOffs(legUvX[i * 2 + 1], legUvY[i * 2 + 1])
-                            .addBox(0.0f, -1.0f, -1.0f, 6.0f, 2.0f, 2.0f),
-                    PartPose.offsetAndRotation(7.0f, -1.0f, z, 0.0f, 0.0f, -0.6f));
+        PartDefinition armR = shell.addOrReplaceChild("arm_r",
+                CubeListBuilder.create().texOffs(24, 28)
+                        .addBox(0.0f, -2.0f, -2.0f, 6.0f, 4.0f, 4.0f),
+                PartPose.offsetAndRotation(7.0f, -2.0f, -4.0f, 0.0f, 0.55f, -0.15f));
+        armR.addOrReplaceChild("pincer_r_top",
+                CubeListBuilder.create().texOffs(28, 76)
+                        .addBox(0.0f, -2.5f, -3.0f, 6.0f, 3.0f, 6.0f),
+                PartPose.offset(6.0f, 0.0f, 0.0f));
+        armR.addOrReplaceChild("pincer_r_bot",
+                CubeListBuilder.create().texOffs(28, 86)
+                        .addBox(0.0f, 0.0f, -3.0f, 6.0f, 2.0f, 6.0f),
+                PartPose.offset(6.0f, 0.0f, 0.0f));
+
+        // EIGHT long spider legs: hip angled up-out, shin reaching down to the
+        // ground. Pairs along the shell's flanks: z = -3.6 .. +3.6.
+        int[] legHipUvX = {0, 22, 0, 22, 0, 22, 0, 22};
+        int[] legHipUvY = {40, 40, 44, 44, 48, 48, 52, 52};
+        int[] legShinUvX = {0, 28, 0, 28, 0, 28, 0, 28};
+        int[] legShinUvY = {56, 56, 60, 60, 64, 64, 68, 68};
+        for (int i = 0; i < 8; i++) {
+            boolean left = i % 2 == 0;
+            float z = -3.6f + (i / 2) * 2.4f;
+            PartDefinition hip = shell.addOrReplaceChild("hip" + i,
+                    CubeListBuilder.create().texOffs(legHipUvX[i], legHipUvY[i])
+                            .addBox(left ? -8.0f : 0.0f, -1.0f, -1.0f, 8.0f, 2.0f, 2.0f),
+                    PartPose.offsetAndRotation(left ? -7.0f : 7.0f, 0.0f, z,
+                            0.0f, 0.0f, left ? HIP_UP : -HIP_UP));
+            hip.addOrReplaceChild("shin" + i,
+                    CubeListBuilder.create().texOffs(legShinUvX[i], legShinUvY[i])
+                            .addBox(left ? -11.0f : 0.0f, -1.0f, -1.0f, 11.0f, 2.0f, 2.0f),
+                    PartPose.offsetAndRotation(left ? -8.0f : 8.0f, 0.0f, 0.0f,
+                            0.0f, 0.0f, left ? -SHIN_DOWN : SHIN_DOWN));
         }
 
-        // Eye stalks with eyeballs on top.
+        // Eye stalks poking over the front rim.
         PartDefinition stalkL = shell.addOrReplaceChild("stalk_l",
-                CubeListBuilder.create().texOffs(50, 0).addBox(-0.5f, -3.0f, -0.5f, 1.0f, 3.0f, 1.0f),
-                PartPose.offset(-2.5f, -4.0f, -4.6f));
+                CubeListBuilder.create().texOffs(48, 0)
+                        .addBox(-0.5f, -3.0f, -0.5f, 1.0f, 3.0f, 1.0f),
+                PartPose.offset(-2.4f, -5.0f, -4.2f));
         stalkL.addOrReplaceChild("eye_l",
-                CubeListBuilder.create().texOffs(50, 4).addBox(-1.0f, -2.0f, -0.5f, 2.0f, 2.0f, 1.0f),
+                CubeListBuilder.create().texOffs(48, 4)
+                        .addBox(-1.0f, -2.0f, -1.0f, 2.0f, 2.0f, 2.0f),
                 PartPose.offset(0.0f, -3.0f, 0.0f));
         PartDefinition stalkR = shell.addOrReplaceChild("stalk_r",
-                CubeListBuilder.create().texOffs(54, 0).addBox(-0.5f, -3.0f, -0.5f, 1.0f, 3.0f, 1.0f),
-                PartPose.offset(2.5f, -4.0f, -4.6f));
+                CubeListBuilder.create().texOffs(56, 0)
+                        .addBox(-0.5f, -3.0f, -0.5f, 1.0f, 3.0f, 1.0f),
+                PartPose.offset(2.4f, -5.0f, -4.2f));
         stalkR.addOrReplaceChild("eye_r",
-                CubeListBuilder.create().texOffs(56, 4).addBox(-1.0f, -2.0f, -0.5f, 2.0f, 2.0f, 1.0f),
+                CubeListBuilder.create().texOffs(56, 4)
+                        .addBox(-1.0f, -2.0f, -1.0f, 2.0f, 2.0f, 2.0f),
                 PartPose.offset(0.0f, -3.0f, 0.0f));
 
-        return LayerDefinition.create(mesh, 64, 64);
+        return LayerDefinition.create(mesh, 64, 128);
     }
 
     @Override
-    public void setupAnim(BossFishEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
+    public void setupAnim(BossFishEntity entity, float limbSwing, float limbSwingAmount,
+                          float ageInTicks, float netHeadYaw, float headPitch) {
         int state = entity.getBossState();
-
-        // Look towards the target with the whole body.
-        shell.yRot = netHeadYaw * ((float) Math.PI / 180F);
-
-        // Legs wiggle while walking, tuck in while airborne.
         boolean airborne = !entity.isOnGround();
+        float amt = Mth.clamp(limbSwingAmount, 0.0f, 1.0f);
+
+        // Body yaw is applied by the renderer; add only a salty roll/bob.
+        shell.zRot = Mth.sin(ageInTicks * 0.16f) * 0.035f;
+        shell.y = 15.0f + Mth.sin(ageInTicks * 0.19f) * 0.35f * (airborne ? 0.3f : 1.0f);
+
         for (int i = 0; i < 8; i++) {
-            ModelPart leg = legs[i];
-            float side = (i % 2 == 0) ? 1.0f : -1.0f;
-            float base = side * 0.55f;
-            if (airborne) {
-                leg.zRot = side * 0.15f;
-                leg.yRot = 0.0f;
-            } else {
-                leg.zRot = base;
-                leg.yRot = Mth.sin(limbSwing * 0.7f + i * 1.4f) * 0.45f * limbSwingAmount;
+            boolean left = i % 2 == 0;
+            int pair = i / 2;
+            ModelPart hip = hips[i];
+            ModelPart shin = shins[i];
+            // Tripod-ish gait: alternate diagonal pairs, extra phase per row.
+            float phase = limbSwing * 1.7f + pair * 1.2f + (left ? 0.0f : (float) Math.PI);
+            float flap = Mth.sin(phase) * 0.34f * amt;
+            float knee = Mth.sin(phase + 1.1f) * 0.22f * amt;
+
+            switch (state) {
+                case BossFishEntity.STATE_STUNNED -> {
+                    // Limp, splayed after every swipe - the punish window.
+                    hip.zRot = (left ? 0.95f : -0.95f);
+                    shin.zRot = (left ? -0.45f : 0.45f);
+                    hip.yRot = 0.0f;
+                    shin.yRot = 0.0f;
+                }
+                case BossFishEntity.STATE_LEAPING -> {
+                    // Tucked in mid-jump.
+                    hip.zRot = (left ? 0.72f : -0.72f);
+                    shin.zRot = (left ? -2.3f : 2.3f);
+                    hip.yRot = 0.0f;
+                    shin.yRot = 0.0f;
+                }
+                case BossFishEntity.STATE_TELEGRAPH -> {
+                    // Crouched & quivering while the red circle follows its victim.
+                    hip.zRot = (left ? 0.5f : -0.5f) + Mth.sin(ageInTicks * 2.2f + i) * 0.05f;
+                    shin.zRot = (left ? -1.0f : 1.0f);
+                    hip.yRot = 0.0f;
+                    shin.yRot = 0.0f;
+                }
+                default -> {
+                    if (airborne) {
+                        hip.zRot = (left ? 0.55f : -0.55f) + flap * 0.4f;
+                        shin.zRot = (left ? -1.0f : 1.0f) + knee * 0.3f;
+                        hip.yRot = 0.0f;
+                        shin.yRot = 0.0f;
+                    } else {
+                        hip.zRot = (left ? HIP_UP : -HIP_UP) + flap;
+                        shin.zRot = (left ? -SHIN_DOWN : SHIN_DOWN) - knee;
+                        // Shins also steer fore/aft a bit while scuttling.
+                        hip.yRot = Mth.sin(phase + 0.6f) * 0.3f * amt;
+                        shin.yRot = -hip.yRot * 0.5f;
+                    }
+                }
             }
         }
 
-        // Claws: raised & wide while leaping, drooping while stunned, waving mildly otherwise.
-        if (state == BossFishEntity.STATE_LEAPING) {
-            leftArm.xRot = -1.7f;
-            rightArm.xRot = -1.7f;
-            leftPincerTop.xRot = -0.7f;
-            rightPincerTop.xRot = -0.7f;
-            leftPincerBot.xRot = 0.4f;
-            rightPincerBot.xRot = 0.4f;
-        } else if (state == BossFishEntity.STATE_STUNNED) {
-            leftArm.xRot = 0.55f;
-            rightArm.xRot = 0.55f;
-            leftPincerTop.xRot = 0.0f;
-            rightPincerTop.xRot = 0.0f;
-            leftPincerBot.xRot = 0.0f;
-            rightPincerBot.xRot = 0.0f;
-        } else {
-            float wave = Mth.sin(ageInTicks * 0.18f) * 0.25f;
-            leftArm.xRot = -0.5f + wave;
-            rightArm.xRot = -0.5f - wave;
-            float snap = Mth.sin(ageInTicks * 0.5f) * 0.5f + 0.5f;
-            leftPincerTop.xRot = -0.15f - snap * 0.25f;
-            rightPincerTop.xRot = -0.15f - snap * 0.25f;
-            leftPincerBot.xRot = 0.1f;
-            rightPincerBot.xRot = 0.1f;
+        // Claws: raise & snap during telegraph, swing while running, droop on stun.
+        float snap = Mth.sin(ageInTicks * 0.55f) * 0.5f + 0.5f;
+        armL.yRot = -0.55f;
+        armR.yRot = 0.55f;
+        switch (state) {
+            case BossFishEntity.STATE_TELEGRAPH -> {
+                armL.xRot = -1.5f;
+                armR.xRot = -1.5f;
+                armL.zRot = 0.35f + Mth.sin(ageInTicks * 1.8f) * 0.08f;
+                armR.zRot = -0.35f - Mth.sin(ageInTicks * 1.8f) * 0.08f;
+                openPincers(0.75f + snap * 0.25f);
+            }
+            case BossFishEntity.STATE_LEAPING -> {
+                armL.xRot = -1.9f;
+                armR.xRot = -1.9f;
+                armL.zRot = 0.5f;
+                armR.zRot = -0.5f;
+                openPincers(1.0f);
+            }
+            case BossFishEntity.STATE_STUNNED -> {
+                armL.xRot = 0.65f;
+                armR.xRot = 0.65f;
+                armL.zRot = 0.05f;
+                armR.zRot = -0.05f;
+                openPincers(0.0f);
+            }
+            default -> {
+                float reach = 0.45f * amt;
+                armL.xRot = -0.15f - reach + Mth.sin(ageInTicks * 0.3f) * 0.08f;
+                armR.xRot = -0.15f - reach - Mth.sin(ageInTicks * 0.3f) * 0.08f;
+                armL.yRot = -0.55f;
+                armR.yRot = 0.55f;
+                openPincers(0.12f + snap * 0.1f);
+            }
         }
 
-        // Eye stalks bob and scan.
-        float scan = Mth.sin(ageInTicks * 0.12f) * 0.2f;
-        stalkL.yRot = scan;
-        stalkR.yRot = scan;
-        shell.xRot = airborne ? -0.18f : Mth.sin(ageInTicks * 0.09f) * 0.03f;
+        // Eye stalks: bob and scan; rattle violently during the telegraph.
+        float scan = Mth.sin(ageInTicks * 0.13f) * 0.22f;
+        float shake = state == BossFishEntity.STATE_TELEGRAPH ? Mth.sin(ageInTicks * 1.9f) * 0.12f : 0.0f;
+        stalkL.yRot = scan + shake;
+        stalkR.yRot = scan - shake;
+        stalkL.xRot = state == BossFishEntity.STATE_TELEGRAPH ? -0.25f : 0.0f;
+        stalkR.xRot = stalkL.xRot;
+    }
+
+    private void openPincers(float open) {
+        pincerLTop.xRot = -open * 0.5f;
+        pincerRTop.xRot = -open * 0.5f;
+        pincerLBot.xRot = open * 0.35f;
+        pincerRBot.xRot = open * 0.35f;
     }
 
     @Override
@@ -186,7 +267,8 @@ public class CrabModel extends HierarchicalModel<BossFishEntity> {
     }
 
     @Override
-    public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
+    public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
+                               float red, float green, float blue, float alpha) {
         root.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
     }
 }

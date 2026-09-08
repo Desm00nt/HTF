@@ -1,6 +1,7 @@
 package com.howtofish.mod.entity;
 
 import com.howtofish.mod.item.BaitItem;
+import com.howtofish.mod.item.BeerItem;
 import com.howtofish.mod.registry.ModEntities;
 import com.howtofish.mod.registry.ModSounds;
 import net.minecraft.core.BlockPos;
@@ -37,6 +38,10 @@ import java.util.UUID;
  * whole "fight" is visible. Once the float reaches the player the fish is set
  * down on the shore where it can be finished with the knife or released with
  * an empty hand.
+ * <p>
+ * BEER BAIT EXCEPTION: with a beer loaded into the rod there are no nibbles
+ * at all - after a long pause the float plunges HARD once. Hooking THAT bite
+ * summons the Spider Crab boss out of the deep.
  */
 public class BobberEntity extends Projectile {
 
@@ -172,6 +177,17 @@ public class BobberEntity extends Projectile {
         return false;
     }
 
+    /** True if the rod currently holds a BEER - the Spider Crab's only lure. */
+    public static boolean hasBeerBait(Player player) {
+        for (ItemStack s : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
+            if (s.getItem() instanceof com.howtofish.mod.item.FishingRodCustomItem
+                    && com.howtofish.mod.item.FishingRodCustomItem.getBait(s).getItem() instanceof BeerItem) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Server: consume one use of the bait in the held rod (beer = 1 use, golden = 15). */
     private static void consumeBait(Player player) {
         for (ItemStack s : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
@@ -224,9 +240,15 @@ public class BobberEntity extends Projectile {
             this.setDeltaMovement(Vec3.ZERO);
             this.setState(STATE_BOBBING);
             Player player = this.getOwner() instanceof Player p ? p : null;
+            boolean beer = player != null && hasBeerBait(player);
             boolean baited = player != null && hasBait(player);
-            // Baited casts attract fish twice as fast.
-            this.biteCooldown = (baited ? 40 : 80) + this.random.nextInt(baited ? 60 : 120);
+            if (beer) {
+                // The crab takes its time... then commits.
+                this.biteCooldown = 110 + this.random.nextInt(110);
+            } else {
+                // Baited casts attract fish twice as fast.
+                this.biteCooldown = (baited ? 40 : 80) + this.random.nextInt(baited ? 60 : 120);
+            }
         } else if (this.onGround || !this.level.noCollision(this, this.getBoundingBox())) {
             this.setState(STATE_GROUNDED);
             this.playSplash(0.4f, 1.4f);
@@ -240,6 +262,17 @@ public class BobberEntity extends Projectile {
         }
         this.setDeltaMovement(this.getDeltaMovement().scale(0.8).add(0, 0.02, 0));
         if (--this.biteCooldown <= 0) {
+            if (hasBeerBait(player)) {
+                // No teasing nibbles with beer - one massive plunge. LONGER window.
+                this.biteTicks = 45 + this.random.nextInt(15);
+                this.setState(STATE_BITE);
+                this.playSplash(1.4f, 0.5f);
+                if (this.level instanceof ServerLevel sl) {
+                    sl.sendParticles(ParticleTypes.SPLASH, this.getX(), this.getY() + 0.2, this.getZ(),
+                            22, 0.4, 0.15, 0.4, 0.2);
+                }
+                return;
+            }
             this.nibblesLeft = 1 + this.random.nextInt(3);
             this.nibblePhaseTicks = 0;
             this.setState(STATE_NIBBLE);
@@ -299,6 +332,11 @@ public class BobberEntity extends Projectile {
 
     /** Hook: the fish that bit is now attached and will be pulled out of the water. */
     private void hookFish(Player player) {
+        if (hasBeerBait(player) && noBossNearby(player)) {
+            consumeBait(player);
+            summonBoss(player);
+            return;
+        }
         FishType type = FishType.roll(this.random, hasBait(player));
         consumeBait(player);
         CustomFishEntity fish = new CustomFishEntity(ModEntities.CUSTOM_FISH.get(), this.level);
@@ -401,6 +439,39 @@ public class BobberEntity extends Projectile {
                         8, 0.25, 0.1, 0.25, 0.1);
             }
         }
+    }
+
+    private boolean noBossNearby(Player player) {
+        return this.level.getEntitiesOfClass(BossFishEntity.class,
+                player.getBoundingBox().inflate(48.0), BossFishEntity::isAlive).isEmpty();
+    }
+
+    /**
+     * The beer bite is not a fish: hooking it drags the SPIDER CRAB out of
+     * the deep right where the float was. The line snaps (a rod can't hold a
+     * boss), the music starts and the chase begins.
+     */
+    private void summonBoss(Player player) {
+        BossFishEntity boss = new BossFishEntity(ModEntities.BOSS_FISH.get(), this.level);
+        boss.setPos(this.getX(), this.getY() + 0.1, this.getZ());
+        this.level.addFreshEntity(boss);
+        boss.setTarget(player);
+
+        this.level.playSound(null, boss.blockPosition(), ModSounds.BOSS_ROAR.get(),
+                SoundSource.HOSTILE, 1.7f, 0.75f);
+        this.level.playSound(null, boss.blockPosition(), ModSounds.BOSS_MUSIC.get(),
+                SoundSource.RECORDS, 1.5f, 1.0f);
+        if (this.level instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.SPLASH, this.getX(), this.getY() + 0.3, this.getZ(),
+                    40, 0.9, 0.4, 0.9, 0.35);
+            sl.sendParticles(ParticleTypes.CLOUD, this.getX(), this.getY(), this.getZ(),
+                    18, 0.8, 0.2, 0.8, 0.02);
+        }
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                "message.howtofish.boss_bite"), true);
+        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                "message.howtofish.boss_summoned"));
+        this.discardAndClean();
     }
 
     /** Water surface height at the float's position, searching up/down a little. */

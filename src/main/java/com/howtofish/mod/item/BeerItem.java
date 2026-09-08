@@ -11,10 +11,11 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * A can of beer. Drinkable by the player like normal food, but its main
- * purpose is being handed to the Old Man - he'll drink it (eye/mouth
- * animation) and give back an {@link EmptyCanItem}, the bait needed to
- * summon the Spider Crab boss.
+ * A can of beer - the SPIDER CRAB's lure. Put it into the rod's bait slot
+ * (press B holding the rod) and cast into the sea: after a long wait the
+ * float plunges hard, and hooking THAT bite summons the boss. One beer =
+ * one summoning attempt, exactly like in the reference game where you fish
+ * the crab out with a can of brew.
  */
 public class BeerItem extends Item {
     public static final FoodProperties FOOD = new FoodProperties.Builder()
