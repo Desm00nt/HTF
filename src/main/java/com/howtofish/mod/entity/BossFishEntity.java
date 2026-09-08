@@ -73,8 +73,12 @@ public class BossFishEntity extends Monster {
     private static final EntityDataAccessor<Integer> DATA_TELE_TICKS =
             SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.INT);
     /** THE spot of the ultimate jump: circle & landing are the same point, synced to clients. */
-    private static final EntityDataAccessor<Vec3> DATA_LEAP_POS =
-            SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.VECTOR3);
+    private static final EntityDataAccessor<Float> DATA_LEAP_X =
+            SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_LEAP_Y =
+            SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_LEAP_Z =
+            SynchedEntityData.defineId(BossFishEntity.class, EntityDataSerializers.FLOAT);
 
     public static final int TELEGRAPH_TIME = 70;
     private static final int STUN_TIME = 32;
@@ -146,21 +150,27 @@ public class BossFishEntity extends Monster {
         super.defineSynchedData();
         this.entityData.define(DATA_STATE, STATE_CHASE);
         this.entityData.define(DATA_TELE_TICKS, 0);
-        this.entityData.define(DATA_LEAP_POS, Vec3.ZERO);
+        this.entityData.define(DATA_LEAP_X, 0.0f);
+        this.entityData.define(DATA_LEAP_Y, 0.0f);
+        this.entityData.define(DATA_LEAP_Z, 0.0f);
     }
 
     /** Client: where the red circle / the inevitable landing point is. */
     public Vec3 getLeapTarget() {
-        return this.entityData.get(DATA_LEAP_POS);
+        return new Vec3(this.entityData.get(DATA_LEAP_X), this.entityData.get(DATA_LEAP_Y),
+                this.entityData.get(DATA_LEAP_Z));
     }
 
     public boolean hasLeapTarget() {
-        Vec3 p = getLeapTarget();
-        return p.x != 0.0 || p.z != 0.0;
+        return this.entityData.get(DATA_LEAP_X) != 0.0f || this.entityData.get(DATA_LEAP_Z) != 0.0f;
     }
 
     private void setLeapTarget(Vec3 pos) {
-        this.entityData.set(DATA_LEAP_POS, pos);
+        // Written together every tick, read together every render - a frame of
+        // tearing on a 20 Hz sync is invisible for a ground marker.
+        this.entityData.set(DATA_LEAP_X, (float) pos.x);
+        this.entityData.set(DATA_LEAP_Y, (float) pos.y);
+        this.entityData.set(DATA_LEAP_Z, (float) pos.z);
     }
 
     private int leapFlight = 0;
@@ -389,6 +399,7 @@ public class BossFishEntity extends Monster {
         // FREEZE the aim: this is where the circle sits now, come what may.
         Vec3 landing = target != null && target.isAlive() ? target.position() : getLeapTarget();
         if (landing.x == 0.0 && landing.z == 0.0) landing = this.position();
+        // (sentinel-zero from the synced floats; see hasLeapTarget)
         this.setLeapTarget(landing);
         double dxl = landing.x - this.getX();
         double dzl = landing.z - this.getZ();
