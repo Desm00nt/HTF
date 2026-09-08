@@ -10,13 +10,10 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * A can of beer - the SPIDER CRAB's lure. Put it into the rod's bait slot
- * (press B holding the rod) and cast into the sea: after a long wait the
- * float plunges hard, and hooking THAT bite summons the boss. One beer =
- * one summoning attempt, exactly like in the reference game where you fish
- * the crab out with a can of brew.
- * <p>
- * Deliberately NOT edible - you don't drink the bait!
+ * A bottle of beer. NOT a bait and NOT a drink for the player: hand it to
+ * Old Sol (right-click him) - he gulps it down, belches, and returns the
+ * EMPTY CAN ({@link EmptyCanItem}), which is the real Spider Crab lure.
+ * The beer's whole job is to get that can.
  */
 public class BeerItem extends Item {
 
@@ -26,7 +23,7 @@ public class BeerItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.howtofish.beer_bait"));
-        tooltip.add(Component.translatable("tooltip.howtofish.bait_key"));
+        tooltip.add(Component.translatable("tooltip.howtofish.beer_give"));
+        
     }
 }

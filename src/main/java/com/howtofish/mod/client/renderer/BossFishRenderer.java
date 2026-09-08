@@ -18,8 +18,11 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Boss renderer: the crab model + the special-attack telegraph - a glowing
- * RED CIRCLE on the ground under the victim that widens as the crab charges
- * its leap.
+ * RED CIRCLE that widens under the victim while the crab charges, and then
+ * KEEPS BURNING at the locked landing spot while the crab is airborne. The
+ * circle is read from the entity's synced DATA_LEAP_POS - the very vector
+ * the server steers the flight towards - so what the player sees is exactly
+ * where the slam will land. It is the ultimate, not a suggestion.
  * <p>
  * NOTE: entity renderers get a pose stack whose origin is the entity's
  * interpolated position (camera-relative). The circle used to be fed raw
@@ -68,26 +71,35 @@ public class BossFishRenderer extends MobRenderer<BossFishEntity, CrabModel> {
         poseStack.popPose();
     }
 
-    /** Draws the growing red circle under the target player. */
+    /** Draws the red circle at the SYNCED strike spot (grows during the
+     *  telegraph, stays lit & pulsing at the locked point during the flight). */
     private void renderTelegraphCircle(BossFishEntity entity, float partialTicks, PoseStack poseStack,
                                        MultiBufferSource buffer, int light) {
-        if (entity.getBossState() != BossFishEntity.STATE_TELEGRAPH) return;
+        int state = entity.getBossState();
+        if (state != BossFishEntity.STATE_TELEGRAPH && state != BossFishEntity.STATE_LEAPING) return;
 
-        Player target = nearestPlayer(entity);
-        if (target == null) return;
+        // The server tracks the victim with DATA_LEAP_POS every tick during
+        // the charge and FREEZES it on leap start - we render exactly that.
+        Vec3 spot = entity.hasLeapTarget() ? entity.getLeapTarget() : null;
+        if (spot == null) {
+            Player target = nearestPlayer(entity);
+            if (target == null) return;
+            spot = target.getPosition(partialTicks);
+        }
 
-        float progress = 1.0f - entity.getTelegraphTicks() / (float) TELEGRAPH_TIME; // 0 -> 1
+        boolean leaping = state == BossFishEntity.STATE_LEAPING;
+        float progress = leaping ? 1.0f
+                : 1.0f - entity.getTelegraphTicks() / (float) TELEGRAPH_TIME; // 0 -> 1
         float radius = 0.7f + 2.1f * progress;
-        float pulse = 0.5f + 0.5f * Mth.sin((entity.tickCount + partialTicks) * 0.7f);
-        int alphaFill = (int) (70 + 60 * pulse);
+        float pulse = 0.5f + 0.5f * Mth.sin((entity.tickCount + partialTicks) * (leaping ? 1.3f : 0.7f));
+        int alphaFill = (int) (70 + 60 * pulse) + (leaping ? 30 : 0);
         int alphaRing = (int) (170 + 80 * progress);
 
         // Positions relative to the renderer's origin (the interpolated entity).
         Vec3 ep = entity.getPosition(partialTicks);
-        Vec3 tp = target.getPosition(partialTicks);
-        float cx = (float) (tp.x - ep.x);
-        float cy = (float) (tp.y - ep.y) + 0.06f;
-        float cz = (float) (tp.z - ep.z);
+        float cx = (float) (spot.x - ep.x);
+        float cy = (float) (spot.y - ep.y) + 0.06f;
+        float cz = (float) (spot.z - ep.z);
 
         poseStack.pushPose();
         VertexConsumer vc = buffer.getBuffer(RenderType.lightning());
@@ -95,6 +107,13 @@ public class BossFishRenderer extends MobRenderer<BossFishEntity, CrabModel> {
         drawDisc(vc, poseStack, cx, cy, cz, radius, 255, 40, 30, alphaFill);
         drawRing(vc, poseStack, cx, cy + 0.01f, cz, radius, radius + 0.22f, 255, 70, 45, alphaRing);
         drawDisc(vc, poseStack, cx, cy + 0.02f, cz, radius * 0.3f, 255, 150, 110, (int) (70 + 100 * progress));
+        if (leaping) {
+            // A bright countdown ring collapsing onto the spot while it flies.
+            float t = (entity.tickCount % 20) / 20.0f;
+            drawRing(vc, poseStack, cx, cy + 0.03f, cz,
+                    radius * (1.3f - t), radius * (1.3f - t) + 0.12f,
+                    255, 220, 60, 200);
+        }
         poseStack.popPose();
     }
 

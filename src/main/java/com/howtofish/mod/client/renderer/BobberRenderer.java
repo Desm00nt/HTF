@@ -117,11 +117,13 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
         float walk = Mth.clamp((float) player.getDeltaMovement().horizontalDistance(), 0f, 0.2f) * 5.0f;
         float bob = Mth.sin(player.tickCount * 0.13f + player.getId() * 0.7f) * 0.018f * walk;
 
+        // Push all the way to the TIP of the held rod (the grip sits near the
+        // screen corner; the blank rod model's tip is far forward & slightly
+        // right), not to the middle of the stick as before.
         return eye
-                .add(look.scale(0.48 + swing * 0.35))   // forward toward the rod tip
-                .add(flat.scale(sideSign * (0.46 - swing * 0.25))) // out to the holding hand
-                .add(0.0, -0.14 + swing * 0.55 + bob, 0.0)         // wrist rises during the cast swing
-                .add(look.scale(0.16));
+                .add(look.scale(0.95 + swing * 0.3))    // far forward - to the tip
+                .add(flat.scale(sideSign * (0.55 - swing * 0.3))) // along the holding arm
+                .add(0.0, -0.32 + swing * 0.55 + bob, 0.0);       // tip line vs wrist swing
     }
 
     /**

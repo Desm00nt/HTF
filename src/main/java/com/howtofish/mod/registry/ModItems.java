@@ -3,6 +3,7 @@ package com.howtofish.mod.registry;
 import com.howtofish.mod.HowToFishMod;
 import com.howtofish.mod.entity.FishType;
 import com.howtofish.mod.item.BeerItem;
+import com.howtofish.mod.item.EmptyCanItem;
 import com.howtofish.mod.item.FishMeatItem;
 import com.howtofish.mod.item.FishingRodCustomItem;
 import com.howtofish.mod.item.KnifeItem;
@@ -35,6 +36,10 @@ public class ModItems {
     /** Beer - the Spider Crab's lure (kept stackable: bait for repeated expeditions). */
     public static final RegistryObject<Item> BEER = ITEMS.register("beer",
             () -> new BeerItem(base().stacksTo(8)));
+
+    // Passively-obtained from Sol when he finishes a beer; ONLY a rod bait (see BaitKind.CAN).
+    public static final RegistryObject<Item> EMPTY_CAN = ITEMS.register("empty_can",
+            () -> new EmptyCanItem(base().stacksTo(16)));
 
     public static final RegistryObject<Item> RUBLE_COIN = ITEMS.register("ruble_coin",
             () -> new RubleCoinItem(base().stacksTo(64)));

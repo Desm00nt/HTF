@@ -229,11 +229,14 @@ public class CrabModel extends HierarchicalModel<BossFishEntity> {
                 openPincers(1.0f);
             }
             case BossFishEntity.STATE_STUNNED -> {
-                armL.xRot = 0.65f;
-                armR.xRot = 0.65f;
-                armL.zRot = 0.05f;
-                armR.zRot = -0.05f;
-                openPincers(0.0f);
+                // Limp: the claw arms hang DOWN and the pincers gape slack,
+                // gently swaying - the punish window, no raised "victory" arms.
+                float droop = Mth.sin(ageInTicks * 0.5f) * 0.06f;
+                armL.xRot = -0.95f + droop;
+                armR.xRot = -0.95f - droop;
+                armL.zRot = -0.12f;
+                armR.zRot = 0.12f;
+                openPincers(0.45f + droop * 2.0f);
             }
             default -> {
                 float reach = 0.45f * amt;
@@ -254,11 +257,17 @@ public class CrabModel extends HierarchicalModel<BossFishEntity> {
         stalkR.xRot = stalkL.xRot;
     }
 
+    /** Opens the pincer halves around the natural hinge axis (zRot of the
+     *  horizontal claw boxes: left top up = +, mirrored on the right). */
     private void openPincers(float open) {
-        pincerLTop.xRot = -open * 0.5f;
-        pincerRTop.xRot = -open * 0.5f;
-        pincerLBot.xRot = open * 0.35f;
-        pincerRBot.xRot = open * 0.35f;
+        pincerLTop.zRot = open * 0.42f;
+        pincerRTop.zRot = -open * 0.42f;
+        pincerLBot.zRot = -open * 0.30f;
+        pincerRBot.zRot = open * 0.30f;
+        pincerLTop.xRot = 0.0f;
+        pincerRTop.xRot = 0.0f;
+        pincerLBot.xRot = 0.0f;
+        pincerRBot.xRot = 0.0f;
     }
 
     @Override

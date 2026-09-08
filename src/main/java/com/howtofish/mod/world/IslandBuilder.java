@@ -22,10 +22,13 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public class IslandBuilder {
 
-    // Sea surface of the flat ocean world is at Y=-2 (water top block), so the
-    // island surface sits at Y=0 - just 2 blocks above the water line.
-    public static final BlockPos SPAWN_ISLAND_ORIGIN = new BlockPos(0, 0, 0);
-    public static final BlockPos SECOND_ISLAND_ORIGIN = new BlockPos(1536, 0, -1216);
+    // Water columns of the flat ocean span Y=-12..-2 (surface plane at -1).
+    // The island surface block now sits at Y=-1: the beach touches the water
+    // line directly (one block lower than before), and every column below it
+    // is filled solid down to the natural stone floor at Y=-16, so there is
+    // no dangling water pocket / void under the island any more.
+    public static final BlockPos SPAWN_ISLAND_ORIGIN = new BlockPos(0, -1, 0);
+    public static final BlockPos SECOND_ISLAND_ORIGIN = new BlockPos(1536, -1, -1216);
 
     private static final int LIGHTHOUSE_TOP_Y = 17; // Y offset of the lamp inside the lamp room
 
@@ -82,24 +85,33 @@ public class IslandBuilder {
                     BlockState surface = dist > coast - 2.5 ? Blocks.SAND.defaultBlockState()
                             : Blocks.GRASS_BLOCK.defaultBlockState();
                     level.setBlock(top, surface, 3);
-                    level.setBlock(top.below(1), Blocks.SAND.defaultBlockState(), 3);
-                    level.setBlock(top.below(2), Blocks.SANDSTONE.defaultBlockState(), 3);
-                    for (int y = 3; y <= 6; y++) {
-                        level.setBlock(top.below(y), Blocks.STONE.defaultBlockState(), 3);
-                    }
-                    level.setBlock(top.below(7), Blocks.BEDROCK.defaultBlockState(), 3);
+                    fillToSeafloor(level, top);
                     // Walkable air above.
                     for (int y = 1; y <= 7; y++) {
                         level.setBlock(top.above(y), Blocks.AIR.defaultBlockState(), 3);
                     }
                 } else {
-                    // Shallow sandy shelf fading into the sea.
-                    level.setBlock(top.below(1), Blocks.SAND.defaultBlockState(), 3);
-                    level.setBlock(top.below(2), Blocks.SAND.defaultBlockState(), 3);
-                    level.setBlock(top.below(3), Blocks.STONE.defaultBlockState(), 3);
-                    level.setBlock(top.below(4), Blocks.STONE.defaultBlockState(), 3);
+                    // Shallow sandy shelf fading into the sea. Same solid
+                    // foundation all the way down - the old 4-block stub left
+                    // the sea hanging under the island edge.
+                    fillToSeafloor(level, top);
                 }
             }
+        }
+    }
+
+    /**
+     * Solid foundation for any island column: sand, sandstone, then stone all
+     * the way to the flat world's natural stone floor (Y=-16 for the spawn
+     * island's depth) - nothing can show through as a floating water pocket.
+     */
+    private static void fillToSeafloor(ServerLevel level, BlockPos top) {
+        for (int dy = 1; dy <= 15; dy++) {
+            BlockState under;
+            if (dy <= 2) under = Blocks.SAND.defaultBlockState();
+            else if (dy == 3) under = Blocks.SANDSTONE.defaultBlockState();
+            else under = Blocks.STONE.defaultBlockState();
+            level.setBlock(top.below(dy), under, 3);
         }
     }
 

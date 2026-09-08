@@ -7,7 +7,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -42,10 +41,10 @@ public class ModEvents {
     }
 
     /**
-     * Keeps the visible hotbar to exactly THREE slots: any item that ends up
-     * in hotbar slots 3-8 is silently relocated into the storage grid (9-35),
-     * and the selected slot is clamped to 0-2 (the client is explicitly told
-     * so the highlight never desyncs). Creative players are exempt.
+     * The custom HUD shows only hotbar cells 0-2, but slots 3-8 stay REAL
+     * (visible in the inventory screen) - nothing is ever relocated, because
+     * that race was what made items "vanish / show as dirt" before. The only
+     * server-side guard left is clamping a bogus selection back to cell 0.
      */
     @SubscribeEvent
     public void onPlayerTick(TickEvent.PlayerTickEvent event) {
@@ -54,17 +53,6 @@ public class ModEvents {
         if (player.isCreative() || player.isSpectator()) return;
 
         Inventory inv = player.getInventory();
-        for (int i = 3; i <= 8; i++) {
-            ItemStack stack = inv.getItem(i);
-            if (stack.isEmpty()) continue;
-            for (int j = 9; j < 36; j++) {
-                if (inv.getItem(j).isEmpty()) {
-                    inv.setItem(j, stack);
-                    inv.setItem(i, ItemStack.EMPTY);
-                    break;
-                }
-            }
-        }
         if (inv.selected >= 3) {
             inv.selected = 0;
             player.connection.send(new ClientboundSetCarriedItemPacket(0));

@@ -25,10 +25,12 @@ import net.minecraft.world.level.Level;
  *                           knife or release it (empty hand right click).
  *
  * The rod also has a BAIT SLOT stored in its NBT ({@code HTFBait}). The
- * player opens the bait menu by pressing "B" with the rod in hand. Two baits
- * exist: the Golden Bait (15 catches - valuable fish bite faster) and BEER,
- * which is not for regular fish at all: with a beer on the line there are no
- * nibbles - one deep plunge - and hooking it drags out the Spider Crab boss.
+ * player opens the bait menu by pressing "B" with the rod in hand. Which
+ * items count as bait and what they DO is centralised in {@link BaitKind}
+ * (currently GOLDEN - 15 catches, valuable fish bite faster - and the CAN
+ * Old Sol gives you for the beer: no nibbles, one deep plunge, hooking it
+ * drags out the Spider Crab boss). Fish/boss logic only queries the kind,
+ * never a concrete item - add a bait in one place and it works everywhere.
  */
 public class FishingRodCustomItem extends Item {
 
@@ -58,15 +60,27 @@ public class FishingRodCustomItem extends Item {
         }
     }
 
-    /** Uses up one bait charge: beer vanishes after one catch, golden bait after {@link BaitItem#MAX_USES}. */
+    /** Kind of bait loaded into this rod (NONE when empty). Single source of truth for fish/boss logic. */
+    public static BaitKind baitKind(ItemStack rod) {
+        return BaitKind.of(getBait(rod));
+    }
+
+    public static boolean hasBait(ItemStack rod) {
+        return baitKind(rod) != BaitKind.NONE;
+    }
+
+    /**
+     * Uses up one bait charge. Golden bait loses one of its {@link BaitItem#MAX_USES}
+     * uses; the empty beer can is a single-use lure that the Spider Crab swallows.
+     */
     public static void consumeBait(ItemStack rod, Player player) {
         ItemStack bait = getBait(rod);
         if (bait.isEmpty()) return;
-        if (bait.getItem() instanceof BeerItem) {
+        if (bait.getItem() instanceof EmptyCanItem) {
             setBait(rod, ItemStack.EMPTY);
-            player.displayClientMessage(Component.translatable("message.howtofish.beer_used"), true);
+            player.displayClientMessage(Component.translatable("message.howtofish.can_used"), true);
             player.level.playSound(null, player.blockPosition(),
-                    SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 0.6f, 1.2f);
+                    SoundEvents.GENERIC_SPLASH, SoundSource.PLAYERS, 0.8f, 0.7f);
         } else if (bait.getItem() instanceof BaitItem) {
             CompoundTag tag = bait.getOrCreateTag();
             int damage = tag.getInt("Damage") + 1;

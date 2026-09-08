@@ -134,6 +134,18 @@ def paint_old_man(surprised):
     c.fill_box((40, 24), (2, 2, 1), SKIN_D)
     f = faces(40, 24, 2, 2, 1)
     x, y, w, h = f['top']; c.rect(x, y, w, h, SKIN)
+    # bulging eyeball boxes (uv 36,48 size 3x3x3): white sclera, pupils on
+    # every side so the stare follows you; lids get a red rim when surprised.
+    c.fill_box((36, 48), (3, 3, 3), WHITE)
+    fe = faces(36, 48, 3, 3, 3)
+    for name in ('front', 'right', 'left', 'back'):
+        x, y, w, h = fe[name]
+        c.rect(x, y, w, h, WHITE)
+        c.set(x + 1, y + 1, PUPIL)
+        c.rect(x, y + h - 1, w, 1, mix(WHITE, LINE, .25))         # lower lid shade
+        if surprised:
+            c.rect(x, y, w, 1, mix(WHITE, (200, 90, 80), .7))     # bloodshot upper lid
+    c.fill_box((36, 48), (3, 1, 3), WHITE)                        # tops stay clean white
     # beard / jaw (uv 40,16 size 6x4x4)
     c.fill_box((40, 16), (6, 4, 4), BEARD)
     for name in ('front', 'right', 'left', 'back'):

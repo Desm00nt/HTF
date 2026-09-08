@@ -8,9 +8,11 @@ endless ocean, together with **Old Salty**, the lighthouse keeper.
 Catch fish with the 3D fishing rod → they're released alive next to you →
 finish them off with the knife → feed the meat to Old Salty for **Rubles**
 (you start with **3 ₽**, shown near your health, just like in the reference
-game) → spend your Rubles in his shop → put a **beer** into the rod's bait
-slot (press **B**) and cast - the one deep plunge is the **Spider Crab**
-boss. Hook it, knife it, and hand its shell to Old Sol for the coordinates
+game) → spend your Rubles in his shop → give him the **beer** he never
+gets to finish (he gulps it and hands back the **empty can**) → put the
+**can** into the rod's bait slot (press **B**) and cast - the one deep
+plunge is the **Spider Crab** boss. Hook it, knife it, and hand its shell
+to Old Sol for the coordinates
 of the next island (read them on the Radar bar while in the boat).
 
 ## Feature checklist vs. your request
@@ -21,9 +23,9 @@ of the next island (read them on the Radar bar while in the boat).
 | Endless ocean + island + lighthouse + boat + old man | `IslandBuilder` procedurally builds a sand island, a tall lighthouse with a glowing rotating-look beacon beam, a wooden dock, a spawned boat and Old Salty, the first time the custom world loads. |
 | New 3D fishing rod | `assets/howtofish/models/item/fishing_rod.json` — real 3D element geometry (handle + angled rod + tip), not a flat icon. Casts a physics bobber with a line drawn from the actual rod tip (`BobberRenderer`). |
 | Many new 3D fish, catch & release, kill for money | `CustomFishEntity` + `FishModel` (3D fish/crab/shrimp/lobster body with animated tail & fins). The rod always performs "catch & release" (see `FishingRodCustomItem`): a live fish spawns next to you and must be finished off with the Knife. |
-| Old Man NPC with feeding animation (wide eyes + open mouth) | `OldManEntity` + `OldManModel` (an articulated jaw bone that opens on a timer) + `OldManRenderer` (swaps to a wide-eyed texture while eating). Right-click empty-handed to talk/shop, right-click with fish meat/beer/trophy to feed him. |
+| Old Man NPC with feeding animation | `OldManEntity` + `OldManModel`: articulated jaw that chomps on a timer, **real eyeball cubes that physically bulge out of their sockets** and a nose that swells when a player walks up holding fish or beer (synced flag + smoothed animation), plus a wide-eyed face-texture swap. Right-click empty-handed to talk/shop; right-click with fish meat / beer / trophy to feed him. Hand him a beer and he drinks it and returns the empty can - the boss lure. |
 | Shop: rod 3₽, knife 4₽, beer 2₽, golden bait 15₽, radar 10₽ | `OldManShopMenu` / `OldManShopScreen` with item icons, live balance and coin SFX on purchase. |
-| Beer IS the boss bait | Put `beer` in the rod's bait slot (B-menu), cast: no nibbles - one hard plunge - hook it and `BossFishEntity` (Spider Crab) drags itself ashore. |
+| Empty beer CAN is the boss bait | Sol drinks the beer and gives you `empty_can`. Put the can in the rod's bait slot (B-menu), cast: no nibbles - one hard plunge - hook it and `BossFishEntity` (Spider Crab) drags itself ashore. All bait behaviour is one enum (`BaitKind`: NONE / GOLDEN / CAN) so fish, rod and boss never reference each other's items directly. |
 | Radar gives coordinates after feeding a boss trophy | Kill the Spider Crab, feed its `spider_crab_shell` to Old Salty, then use the Radar while riding the boat. |
 | Different fish: different HP/price | `FishType` enum — 6 species with individual health & Ruble value. |
 | Money shown top-left near health | `CurrencyHudOverlay` (client HUD overlay). |
@@ -88,14 +90,30 @@ finished jar appears in `build/libs/`.
 4. Buy the **Knife** (4 ₽) and finish the fish off.
 5. Bring the meat to Old Salty — his eyes pop out and he gulps it down,
    you get Rubles (cha-ching).
-6. Buy a **Beer** (2 ₽), press **B** with the rod in hand, drop the beer
-   into the bait slot and cast. No nibbles this time - one hard plunge =
-   **hook the Spider Crab boss**. It runs, leaps and slams; wait for the
-   freeze after its swipe and hit back. (The red telegraph circle means it
-   is about to pounce on THAT spot - run.)
+6. Buy a **Beer** (2 ₽), right-click **Old Salty** with it - he gulps it
+   down, belches and hands you the **empty can**. Press **B** with the rod in
+   hand, drop the can into the bait slot and cast. No nibbles this time -
+   one hard plunge = **hook the Spider Crab boss**. It runs, leaps and slams;
+   wait for the freeze after its swipe and hit back. (The red circle is the
+   LOCKED landing spot - the crab lands exactly inside it, so leave the
+   circle the moment it stops growing.) The boss also drops 2-3 crab meat,
+   which sells like any other catch.
 7. Kill the boss with your knife, bring him the **Spider Crab Shell**.
 8. Buy the **Radar** (10 ₽), hop in the **boat**, right-click the radar to
    pin the bearing of the next island on the top bar.
+
+## HUD & inventory (How-To-Fish mode)
+
+- The HUD hotbar shows exactly THREE active cells (vanilla-anchored, hand-drawn,
+  no vanilla widgets - so nothing can be drawn "shifted" or doubled), plus the
+  rod's BAIT cell and a big heart with the HP readout.
+- **Mouse wheel works**: it cycles cells 1→2→3 (selection is clamped to the
+  three visible slots and echoed to the server); digit keys 4-9 are inert while
+  the custom HUD is active (survival only - creative keeps the vanilla bar).
+- The inventory screen shows ALL NINE hotbar slots in one row: slots 1-3 are
+  the active equipment cells (golden frame), 4-9 are a visible reserve that the
+  player can rearrange - items are NEVER silently shuffled out of them (that
+  old "item became dirt in a hidden slot" race is gone).
 
 ## Known limitations / notes for further work
 

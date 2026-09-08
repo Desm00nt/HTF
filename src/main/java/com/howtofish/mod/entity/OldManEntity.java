@@ -38,10 +38,13 @@ import java.util.List;
  * shop. Right-click while holding fish meat or a boss trophy to feed him:
  * - Fish meat  -&gt; earns the player Rubles, triggers the "eat" animation.
  * - Spider Crab Shell -&gt; unlocks the Radar coordinates for the next island.
- * - Beer       -&gt; he refuses it: that is rod bait, not something to drink!
- * While a player stands next to him holding raw fish his eyes nearly pop out
- * (synced flag drives the renderer's surprised texture + the model's double
- * take).
+ * - Beer       -&gt; he gulps it down (drinking animation) and hands over the
+ *                EMPTY CAN - the only thing the Spider Crab answers to. The
+ *                can itself stays a passive lure: the player loads it into
+ *                the rod via the bait menu; clicking water with it does nothing.
+ * While a player stands next to him holding raw fish or a beer his eyes
+ * physically bulge out of their sockets (model animation, see OldManModel)
+ * and his nose swells.
  */
 public class OldManEntity extends PathfinderMob {
 
@@ -97,7 +100,7 @@ public class OldManEntity extends PathfinderMob {
         Player nearest = null;
         for (Player player : this.level.players()) {
             if (player.isAlive() && this.distanceToSqr(player) < 5.0 * 5.0
-                    && isHoldingFish(player)) {
+                    && isTempting(player)) {
                 nearest = player;
                 break;
             }
@@ -112,9 +115,13 @@ public class OldManEntity extends PathfinderMob {
         }
     }
 
-    private static boolean isHoldingFish(Player player) {
-        return player.getMainHandItem().getItem() instanceof FishMeatItem
-                || player.getOffhandItem().getItem() instanceof FishMeatItem;
+    /** Raw fish meat or beer in hands: both make his eyes bulge. */
+    private static boolean isTempting(Player player) {
+        return isFishOrBeer(player.getMainHandItem()) || isFishOrBeer(player.getOffhandItem());
+    }
+
+    private static boolean isFishOrBeer(ItemStack stack) {
+        return stack.getItem() instanceof FishMeatItem || stack.getItem() instanceof BeerItem;
     }
 
     public boolean isEating() {
@@ -126,17 +133,25 @@ public class OldManEntity extends PathfinderMob {
     }
 
     private void startEating() {
+        startEating(20);
+    }
+
+    /** Plays the chew animation for {@code duration} ticks (beer is gulped longer). */
+    private void startEating(int duration) {
+        this.eatDuration = duration;
         this.entityData.set(EATING, true);
         this.entityData.set(EAT_TICKS, 0);
         this.level.playSound(null, this.blockPosition(), ModSounds.OLD_MAN_EAT.get(), SoundSource.NEUTRAL, 1.0f, 1.0f);
     }
+
+    private int eatDuration = 20;
 
     @Override
     public void tick() {
         super.tick();
         if (isEating()) {
             int ticks = getEatTicks() + 1;
-            if (ticks > 20) {
+            if (ticks > eatDuration) {
                 this.entityData.set(EATING, false);
                 this.entityData.set(EAT_TICKS, 0);
             } else {
@@ -176,11 +191,21 @@ public class OldManEntity extends PathfinderMob {
         }
 
         if (item instanceof BeerItem) {
-            // He waves it away - beer is for the HOOK, not for his gullet.
-            player.displayClientMessage(Component.translatable("message.howtofish.beer_for_rod"), true);
+            // He gulps the whole bottle down, belches, and returns the empty can:
+            // the ONE thing the Spider Crab answers to as a rod bait.
+            held.shrink(1);
+            startEating(44);
             this.level.playSound(null, this.blockPosition(),
-                    net.minecraft.sounds.SoundEvents.VILLAGER_NO, SoundSource.NEUTRAL,
-                    1.0f, 0.6f);
+                    net.minecraft.sounds.SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS,
+                    1.0f, 0.7f);
+            this.level.playSound(null, this.blockPosition(),
+                    net.minecraft.sounds.SoundEvents.PLAYER_BURP, SoundSource.PLAYERS,
+                    0.9f, 0.8f);
+            ItemStack can = new ItemStack(ModItems.EMPTY_CAN.get());
+            if (!player.getInventory().add(can)) {
+                player.drop(can, false);
+            }
+            player.displayClientMessage(Component.translatable("message.howtofish.gave_beer"), true);
             return InteractionResult.SUCCESS;
         }
 

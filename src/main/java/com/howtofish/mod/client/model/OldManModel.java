@@ -21,11 +21,13 @@ import net.minecraft.util.Mth;
  * <ul>
  *   <li>head (0,0) 8x8x8, with a wide-brim sailor hat (crown 32,0 / brim 0,16),</li>
  *   <li>beard-as-jaw (40,16) that hinges open while he eats,</li>
- *   <li>big nose (40,24), coat body (0,28), arms (24,28 / 38,28), legs (0,44 / 16,44).</li>
+ *   <li>big nose (40,24) that SWELLS when he spots a snack,</li>
+ *   <li>two real eyeball cubes (36,48) that physically bulge out of their
+ *       sockets when a player walks up holding raw fish or beer,</li>
+ *   <li>coat body (0,28), arms (24,28 / 38,28), legs (0,44 / 16,44).</li>
  * </ul>
- * The "bulging eyes" moment is now tasteful: when a player walks up holding
- * raw fish his whole head swells slightly, tilts toward the fish and the
- * renderer swaps to the wide-eyed face texture - no floating eyeball cubes.
+ * The renderer additionally swaps to the wide-eyed face texture while the
+ * eyes pop - belt and suspenders for the comedic double take.
  */
 public class OldManModel extends HierarchicalModel<OldManEntity> {
     public static final ModelLayerLocation LAYER_LOCATION =
@@ -34,6 +36,9 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
     private final ModelPart root;
     private final ModelPart head;
     private final ModelPart jaw;
+    private final ModelPart nose;
+    private final ModelPart eyeLeft;
+    private final ModelPart eyeRight;
     private final ModelPart body;
     private final ModelPart rightArm;
     private final ModelPart leftArm;
@@ -44,6 +49,9 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
         this.root = root;
         this.head = root.getChild("head");
         this.jaw = head.getChild("jaw");
+        this.nose = head.getChild("nose");
+        this.eyeLeft = head.getChild("eye_left");
+        this.eyeRight = head.getChild("eye_right");
         this.body = root.getChild("body");
         this.rightArm = root.getChild("right_arm");
         this.leftArm = root.getChild("left_arm");
@@ -73,11 +81,23 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
                         .addBox(-3.0f, 0.0f, -4.0f, 6.0f, 4.0f, 4.0f),
                 PartPose.offset(0.0f, -1.5f, -0.5f));
 
-        // Salty sea-dog nose.
+        // Salty sea-dog nose. The part pivot sits at the nose ROOT so that
+        // scaling it swells the nose in place instead of flinging it up.
         head.addOrReplaceChild("nose",
                 CubeListBuilder.create().texOffs(40, 24)
-                        .addBox(-1.0f, -4.0f, -5.0f, 2.0f, 2.0f, 1.0f),
-                PartPose.ZERO);
+                        .addBox(-1.0f, -1.0f, -1.0f, 2.0f, 2.0f, 1.0f),
+                PartPose.offset(0.0f, -3.0f, -4.0f));
+
+        // Real eyeballs: white 3x3 cubes with painted pupils, half sunk into
+        // the face at rest and physically pushed out of the sockets on "pop".
+        head.addOrReplaceChild("eye_left",
+                CubeListBuilder.create().texOffs(36, 48)
+                        .addBox(-1.5f, -1.5f, -1.5f, 3.0f, 3.0f, 3.0f),
+                PartPose.offset(2.0f, -4.5f, -2.75f));
+        head.addOrReplaceChild("eye_right",
+                CubeListBuilder.create().texOffs(36, 48)
+                        .addBox(-1.5f, -1.5f, -1.5f, 3.0f, 3.0f, 3.0f),
+                PartPose.offset(-2.0f, -4.5f, -2.5f));
 
         root.addOrReplaceChild("body",
                 CubeListBuilder.create().texOffs(0, 28)
@@ -121,13 +141,31 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
                 - 0.22f * pop
                 + (eating ? -0.08f : 0.0f);
 
-        // The "eyes popping" moment: a subtle whole-head swell instead of
-        // floating eyeballs - it reads as a comical double take.
-        float s = 1.0f + 0.06f * pop;
-        head.xScale = s;
-        head.yScale = s;
-        head.zScale = s;
-        head.z = -0.15f * pop;
+        // The "eyes popping" moment: the head swells a touch AND the real
+        // eyeball cubes physically push out of their sockets and grow, while
+        // the nose reddens up (scales). Smoothstep so the pop snaps in.
+        float bulge = pop * pop * (3.0f - 2.0f * pop);
+        head.xScale = 1.0f + 0.04f * bulge;
+        head.yScale = 1.0f + 0.04f * bulge;
+        head.zScale = 1.0f + 0.04f * bulge;
+        head.z = -0.15f * bulge;
+
+        float eyeOut = -2.75f - 1.9f * bulge;
+        float es = 1.0f + 0.55f * bulge;
+        float jitter = bulge * 0.14f;
+        for (ModelPart eye : new ModelPart[]{eyeLeft, eyeRight}) {
+            eye.z = eyeOut;
+            eye.xScale = es;
+            eye.yScale = es;
+            eye.zScale = es;
+        }
+        eyeLeft.y = -4.5f + Mth.sin(ageInTicks * 0.4f) * jitter;
+        eyeRight.y = -4.5f + Mth.sin(ageInTicks * 0.4f + 2.1f) * jitter;
+
+        float ns = 1.0f + 0.75f * bulge;
+        nose.xScale = ns;
+        nose.yScale = ns;
+        nose.zScale = ns;
 
         // Walking swing of arms & legs (eaten pose overrides the right arm).
         float swing = limbSwingAmount * 0.65f;
@@ -141,9 +179,11 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
             float chew = Mth.sin(entity.getEatTicks() * 0.75f) * 0.5f + 0.5f;
             jaw.xRot = 0.18f + 0.62f * chew;
             rightArm.xRot = -2.15f;
-            rightArm.zRot = 0.35f;
+            rightArm.zRot = 0.5f;
             leftArm.xRot = -0.35f;
             body.xRot = 0.06f;
+            // Nodding along as he swallows.
+            head.xRot += Mth.sin(entity.getEatTicks() * 0.4f) * 0.06f;
         } else {
             jaw.xRot = 0.0f;
             rightArm.zRot = -0.04f - 0.28f * pop; // elbows out when shocked

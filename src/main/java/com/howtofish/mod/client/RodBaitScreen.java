@@ -68,8 +68,8 @@ public class RodBaitScreen extends AbstractContainerScreen<RodBaitMenu> {
                 : Component.translatable("menu.howtofish.rod_bait_set", bait.getHoverName());
         drawCenteredString(poseStack, this.font, hint, this.leftPos + imageWidth / 2, this.topPos + 38, 0xFFBFE8FF);
 
-        Component beer = Component.translatable("menu.howtofish.rod_bait_beer");
-        drawCenteredString(poseStack, this.font, beer, this.leftPos + imageWidth / 2, this.topPos + 48, 0xFFE8D9A8);
+        Component can = Component.translatable("menu.howtofish.rod_bait_can");
+        drawCenteredString(poseStack, this.font, can, this.leftPos + imageWidth / 2, this.topPos + 48, 0xFFE8D9A8);
         Component golden = Component.translatable("menu.howtofish.rod_bait_golden");
         drawCenteredString(poseStack, this.font, golden, this.leftPos + imageWidth / 2, this.topPos + 58, 0xFFFFD700);
 

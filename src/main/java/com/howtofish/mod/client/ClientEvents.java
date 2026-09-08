@@ -7,6 +7,8 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
@@ -24,8 +26,9 @@ import org.lwjgl.glfw.GLFW;
  * - the vanilla inventory screen is replaced by the trimmed
  *   {@link FishingInventoryScreen} (3 hotbar slots + 27 storage slots),
  * - slot selection stays locked to the three visible hotbar cells: number
- *   keys 4-9 and the scroll wheel are swallowed while the custom 3-slot HUD
- *   is active (server clamps & re-syncs the selection as a safety net).
+ *   keys 4-9 are swallowed, and the SCROLL WHEEL keeps working but cycles
+ *   0-1-2 only (vanilla's 9-slot cycle is replaced, then echoed to the
+ *   server; the server clamps as a safety net).
  */
 public class ClientEvents {
 
@@ -78,15 +81,28 @@ public class ClientEvents {
             }
         }
 
-        /** Scroll wheel only cycles the hotbar - useless with 3 slots, so swallow it. */
+        /**
+         * The wheel STILL WORKS in custom mode - it just cycles the three
+         * visible cells (0..2) instead of all nine. We cancel vanilla's own
+         * wheel handling to replace it, so nothing can end up "half selected"
+         * and no vanilla frame is drawn over our HUD.
+         */
         @SubscribeEvent
         public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen != null || mc.player == null) return;
             Player player = mc.player;
             if (!HotbarHudOverlay.customMode(player)) return;
-            // No other vanilla wheel behaviour matters in this mode.
+            double dy = event.getScrollDelta();
+            if (dy == 0.0) return;
             event.setCanceled(true);
+            int dir = dy > 0 ? -1 : 1; // scroll up = previous cell, like vanilla
+            int current = player.getInventory().selected;
+            int next = Mth.clamp(current + dir, 0, 2);
+            if (next != current) {
+                player.getInventory().selected = next;
+                mc.getConnection().send(new ServerboundSetCarriedItemPacket(next));
+            }
         }
     }
 }
