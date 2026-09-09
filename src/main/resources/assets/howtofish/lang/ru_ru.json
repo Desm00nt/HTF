@@ -82,5 +82,8 @@
     "message.howtofish.fed_offer": "Сол одобрительно кивает и проглатывает %s. Возврат: %s ₽",
     "boss.howtofish.retreat": "Паук-краб уходит под воду",
     "boss.howtofish.retreat_timer": "Осталось %s с",
-    "message.howtofish.boss_retreated": "Время вышло - паук-краб ушёл на глубину. Наживку - и попробуй снова."
+    "message.howtofish.boss_retreated": "Время вышло - паук-краб ушёл на глубину. Наживку - и попробуй снова.",
+    "message.howtofish.fight_released": "Вы отпустили леску - рыба уплыла живой.",
+    "command.howtofish.fix.clean": "Кактофиш в порядке: все на своих местах.",
+    "command.howtofish.fix.result": "Вернул на места: Сола %s, лодок %s."
 }

@@ -36,6 +36,10 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
     private final ModelPart root;
     private final ModelPart head;
     private final ModelPart jaw;
+    private final ModelPart mouthLips;
+    private final ModelPart mouthInner;
+    private final ModelPart teeth;
+    private final ModelPart tongue;
     private final ModelPart nose;
     private final ModelPart eyeLeft;
     private final ModelPart eyeRight;
@@ -51,6 +55,10 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
         this.root = root;
         this.head = root.getChild("head");
         this.jaw = head.getChild("jaw");
+        this.mouthLips = head.getChild("mouth_lips");
+        this.mouthInner = head.getChild("mouth_inner");
+        this.teeth = mouthInner.getChild("teeth");
+        this.tongue = mouthInner.getChild("tongue");
         this.nose = head.getChild("nose");
         this.eyeLeft = head.getChild("eye_left");
         this.eyeRight = head.getChild("eye_right");
@@ -102,6 +110,28 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
                 CubeListBuilder.create().texOffs(36, 48)
                         .addBox(-1.5f, -1.5f, -1.5f, 3.0f, 3.0f, 3.0f),
                 PartPose.offset(-2.0f, -4.5f, -2.5f));
+
+        // THE REAL MOUTH (nothing painted on the face anymore): a lip ring
+        // plate on the face, a dark cavity plate behind it, and teeth + a
+        // tongue floating on the cavity. At rest the lips are small, flat and
+        // closed; when the eyes pop - or all the while he eats - the whole
+        // assembly PHYSICALLY grows and bulges out, just like the eyeballs.
+        head.addOrReplaceChild("mouth_lips",
+                CubeListBuilder.create().texOffs(50, 24)
+                        .addBox(-2.5f, -2.0f, -0.5f, 5.0f, 4.0f, 1.0f),
+                PartPose.offset(0.0f, -1.6f, -4.0f));
+        PartDefinition inner = head.addOrReplaceChild("mouth_inner",
+                CubeListBuilder.create().texOffs(58, 24)
+                        .addBox(-2.0f, -1.5f, -0.5f, 4.0f, 3.0f, 1.0f),
+                PartPose.offset(0.0f, -1.6f, -3.7f));
+        inner.addOrReplaceChild("teeth",
+                CubeListBuilder.create().texOffs(50, 30)
+                        .addBox(-1.5f, -0.5f, -0.2f, 3.0f, 1.0f, 0.4f),
+                PartPose.offset(0.0f, -0.9f, -0.6f));
+        inner.addOrReplaceChild("tongue",
+                CubeListBuilder.create().texOffs(56, 30)
+                        .addBox(-1.0f, -0.5f, -0.2f, 2.0f, 1.0f, 0.4f),
+                PartPose.offset(0.0f, 0.8f, -0.6f));
 
         root.addOrReplaceChild("body",
                 CubeListBuilder.create().texOffs(0, 28)
@@ -209,24 +239,47 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
             head.y = 1.2f;
         }
 
+        float chew = 0.0f;
         if (eating) {
-            // Chomp: jaw hinges open and shut on a timer, hand to mouth.
-            float chew = Mth.sin(entity.getEatTicks() * 0.75f) * 0.5f + 0.5f;
-            jaw.xRot = 0.18f + 0.62f * chew;
+            // Chomp: jaw hinges open and shut on a timer, hand to mouth, and
+            // the chewing has an envelope - big hungry bites early, smaller
+            // contented ones as the swallow finishes.
+            float env = Mth.clamp(Math.min(entity.getEatTicks(), 60 - entity.getEatTicks()) / 5.0f, 0.25f, 1.0f);
+            chew = (Mth.sin(entity.getEatTicks() * 0.75f) * 0.5f + 0.5f) * env;
+            jaw.xRot = 0.18f + 0.72f * chew;
             rightArm.xRot = -2.15f;
             rightArm.zRot = 0.5f;
             leftArm.xRot = -0.35f;
-            body.xRot = 0.06f;
+            body.xRot = 0.06f + 0.03f * chew;
             // Nodding along as he swallows.
             head.xRot += Mth.sin(entity.getEatTicks() * 0.4f) * 0.06f;
         } else {
-            // Not eating: the mouth still gapes open when the eyes pop -
-            // jaw drops, teeth row and the red mouth interior are exposed.
+            // Not eating: the mouth still gapes open when the eyes pop.
             jaw.xRot = 0.62f * bulge;
             rightArm.zRot = -0.04f - 0.28f * pop; // elbows out when shocked
             leftArm.zRot = 0.04f + 0.28f * pop;
             body.xRot = 0.0f;
         }
+
+        // ---- The 3D mouth: grow-and-bulge, driven by the same smoothstep ----
+        float mouthOpen = Math.max(bulge, eating ? 0.55f + 0.45f * chew : 0.0f);
+        float mo = mouthOpen * mouthOpen * (3.0f - 2.0f * mouthOpen);
+        float lipsS = 1.0f + 0.95f * mo;
+        mouthLips.xScale = lipsS;
+        mouthLips.yScale = lipsS;
+        mouthLips.zScale = 1.0f + 0.5f * mo;
+        mouthLips.z = -4.0f - 1.15f * mo;                 // pushes OUT of the face
+        mouthLips.y = -1.6f + (eating ? 0.35f * chew : 0.0f);  // bobs on each bite
+        mouthInner.visible = mouthOpen > 0.10f;
+        float inS = 1.0f + 0.4f * mo;
+        mouthInner.xScale = inS;
+        mouthInner.yScale = inS;
+        mouthInner.zScale = 1.0f;
+        mouthInner.z = -3.7f - 0.15f * mo;
+        // The wet tongue flicks while chewing; teeth ride the palate.
+        tongue.y = 0.8f + (eating ? Mth.sin(ageInTicks * 1.35f) * 0.18f * chew : 0.0f);
+        tongue.x = Mth.sin(ageInTicks * 0.5f) * 0.08f * mo;
+        teeth.y = -0.9f - 0.06f * mo;
     }
 
     @Override

@@ -82,5 +82,8 @@
     "message.howtofish.fed_offer": "Old Sol nods approvingly and swallows the %s. Refund: %s ₽",
     "boss.howtofish.retreat": "The Spider Crab is slipping away",
     "boss.howtofish.retreat_timer": "%ss left",
-    "message.howtofish.boss_retreated": "Time's up - the Spider Crab sank into the deep. Bait up and try again."
+    "message.howtofish.boss_retreated": "Time's up - the Spider Crab sank into the deep. Bait up and try again.",
+    "message.howtofish.fight_released": "You let the line go - the fish swims away, unharmed.",
+    "command.howtofish.fix.clean": "How To Fish check: everything is in its place.",
+    "command.howtofish.fix.result": "Put back in place: Sol x%s, boats x%s."
 }

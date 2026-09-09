@@ -314,9 +314,22 @@ public class BobberEntity extends Projectile {
             return 1;
         }
         if (state == STATE_HOOKED) {
-            // During the fight RMB is deliberately inert: the reel stroke is
-            // LMB (see applyReelStroke). This way a mistimed right-click can
-            // NEVER yank the line back and "reset" the fight.
+            // RMB during the fight = LET GO on purpose (never an accident -
+            // the reel stroke is LMB): the fish unhooks, swims away fine and
+            // dandy, and the line reels back empty.
+            if (this.level.getEntity(this.entityData.get(DATA_FISH_ID)) instanceof CustomFishEntity f) {
+                f.setHooked(false);
+                f.setInvulnerable(false);
+                f.setNoAi(false);
+                f.setDeltaMovement(new Vec3(this.random.nextGaussian() * 0.12, 0.05,
+                        this.random.nextGaussian() * 0.12));
+                f.hurtMarked = true;
+            }
+            this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
+                    SoundEvents.FISHING_BOBBER_SPLASH, SoundSource.PLAYERS, 0.85f, 1.4f);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.howtofish.fight_released"), true);
+            this.discardAndClean();
             return 0;
         }
         this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
@@ -394,8 +407,15 @@ public class BobberEntity extends Projectile {
         Vec3 diff = player.position().subtract(this.position());
         double horiz = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
 
-        // Landed: put the fish down next to the player.
-        if (horiz < 2.2) {
+        // LANDED - but only when it is REALLY landed: the float dragged out
+        // of the water against the beach, or pulled into the player's hands /
+        // boat. Being close to someone who is still standing in the surf no
+        // longer counts - that was the "it ended on its own, but not on shore"
+        // complaint. The 1.4 failsafe keeps fights from deadlocking if the
+        // player wades right up to the float.
+        boolean dryShore = !this.level.getFluidState(this.blockPosition()).is(FluidTags.WATER);
+        boolean onDryPlayer = !this.level.getFluidState(player.blockPosition()).is(FluidTags.WATER);
+        if ((dryShore && horiz < 2.6) || horiz < 1.4 || (horiz < 2.6 && player.isPassenger())) {
             releaseFish(player, fish);
             this.discardAndClean();
             return;

@@ -15,6 +15,11 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 public class ModEvents {
 
     @SubscribeEvent
+    public void onRegisterCommands(net.minecraftforge.event.RegisterCommandsEvent event) {
+        com.howtofish.mod.command.ModCommands.register(event.getDispatcher());
+    }
+
+    @SubscribeEvent
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         // Initialise the starting balance and push it to the client HUD.
         if (event.getEntity() instanceof ServerPlayer player) {

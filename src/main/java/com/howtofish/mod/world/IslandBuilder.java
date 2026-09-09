@@ -30,6 +30,12 @@ public class IslandBuilder {
     public static final BlockPos SPAWN_ISLAND_ORIGIN = new BlockPos(0, -1, 0);
     public static final BlockPos SECOND_ISLAND_ORIGIN = new BlockPos(1536, -1, -1216);
 
+    /** Sol's stool and the moored boat: THE places things must be at - the
+        /howtofish fix command uses these anchors to put anything that drifted
+        (or got flung) back exactly where the island expects it. */
+    public static final BlockPos OLD_MAN_HOME = SPAWN_ISLAND_ORIGIN.offset(-2, 1, 4);
+    public static final BlockPos BOAT_HOME = SPAWN_ISLAND_ORIGIN.offset(-8, -1, 23);
+
     private static final int LIGHTHOUSE_TOP_Y = 17; // Y offset of the lamp inside the lamp room
 
     public static BlockPos getLighthouseLampPos() {
@@ -45,9 +51,9 @@ public class IslandBuilder {
         decorateMeadow(level, origin, 1337);
         // Past the pier head in open water - spawning beside the
         // planks just dropped the boat under the pier deck.
-        spawnBoat(level, origin.offset(-8, -1, 23));
+        spawnBoat(level, BOAT_HOME);
         // Sol sits on his stool by the tent door and never leaves it.
-        spawnOldMan(level, origin.offset(-2, 1, 4));
+        spawnOldMan(level, OLD_MAN_HOME);
     }
 
     public static void buildSecondIsland(ServerLevel level) {
@@ -425,6 +431,7 @@ public class IslandBuilder {
         var oldMan = ModEntities.OLD_MAN.get().create(level);
         if (oldMan != null) {
             oldMan.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+            oldMan.setHomePos(pos);   // the fix-command anchor travels with him
             oldMan.setCustomName(net.minecraft.network.chat.Component.translatable("entity.howtofish.old_man"));
             oldMan.setCustomNameVisible(true);
             level.addFreshEntity(oldMan);

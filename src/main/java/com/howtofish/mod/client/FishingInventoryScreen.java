@@ -122,8 +122,6 @@ public class FishingInventoryScreen extends AbstractContainerScreen<InventoryMen
         super.render(poseStack, mouseX, mouseY, partialTick);
         GuiStyle.title(poseStack, this.font, this.title,
                 this.leftPos + imageWidth / 2, this.topPos + 6);
-        GuiStyle.caption(poseStack, this.font, Component.translatable("container.howtofish.equipment"),
-                this.leftPos + imageWidth / 2, this.topPos + 50);
         renderTooltip(poseStack, mouseX, mouseY);
     }
 }

@@ -8,6 +8,7 @@ import com.howtofish.mod.menu.OldManShopMenu;
 import com.howtofish.mod.registry.ModItems;
 import com.howtofish.mod.registry.ModSounds;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -56,6 +57,37 @@ public class OldManEntity extends PathfinderMob {
 
     /** Client-side smooth 0..1 amount used by the model to bulge the eyes. */
     public float eyePopAmount;
+
+    /** The stool he belongs on (persisted). See the /howtofish fix command. */
+    private net.minecraft.core.BlockPos homePos;
+
+    public void setHomePos(net.minecraft.core.BlockPos pos) {
+        this.homePos = pos;
+    }
+
+    public net.minecraft.core.BlockPos getHomePos() {
+        return this.homePos != null ? this.homePos
+                : com.howtofish.mod.world.IslandBuilder.OLD_MAN_HOME;
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        if (this.homePos != null) {
+            tag.putInt("HTFHomeX", this.homePos.getX());
+            tag.putInt("HTFHomeY", this.homePos.getY());
+            tag.putInt("HTFHomeZ", this.homePos.getZ());
+        }
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        if (tag.contains("HTFHomeX")) {
+            this.homePos = new net.minecraft.core.BlockPos(
+                    tag.getInt("HTFHomeX"), tag.getInt("HTFHomeY"), tag.getInt("HTFHomeZ"));
+        }
+    }
 
     public OldManEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
