@@ -421,13 +421,13 @@ public class IslandBuilder {
         level.setBlock(start.offset(0, -2, 3), Blocks.OAK_FENCE.defaultBlockState(), 3);
     }
 
-    private static void spawnBoat(ServerLevel level, BlockPos pos) {
+    public static void spawnBoat(ServerLevel level, BlockPos pos) {
         Boat boat = new Boat(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
         boat.setYRot(90.0f);
         level.addFreshEntity(boat);
     }
 
-    private static void spawnOldMan(ServerLevel level, BlockPos pos) {
+    public static void spawnOldMan(ServerLevel level, BlockPos pos) {
         var oldMan = ModEntities.OLD_MAN.get().create(level);
         if (oldMan != null) {
             oldMan.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);

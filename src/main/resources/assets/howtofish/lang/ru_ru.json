@@ -85,5 +85,7 @@
     "message.howtofish.boss_retreated": "Время вышло - паук-краб ушёл на глубину. Наживку - и попробуй снова.",
     "message.howtofish.fight_released": "Вы отпустили леску - рыба уплыла живой.",
     "command.howtofish.fix.clean": "Кактофиш в порядке: все на своих местах.",
-    "command.howtofish.fix.result": "Вернул на места: Сола %s, лодок %s."
+    "command.howtofish.fix.result": "Вернул на места: Сола %s, лодок %s.",
+    "message.howtofish.land_prompt": "Рыба у ног - нажмите ПКМ, чтобы вытащить!",
+    "command.howtofish.help": "How To Fish: /howtofish fix - вернуть всё на свои места (Сол, лодка)."
 }

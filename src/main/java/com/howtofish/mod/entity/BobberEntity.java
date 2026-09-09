@@ -82,7 +82,16 @@ public class BobberEntity extends Projectile {
     /** Ticks since the fish was hooked - drives the dash rhythm. */
     private int hookedTicks = 0;
     /** Extra reeling speed applied while > 0 (re-filling by pressing use again). */
-    private int reelBoost = 0;
+    /** Round 7: BLOCKS of line still owed to the player by queued reel
+        strokes. Every LMB click deposits PULL_PER_STROKE and it is always
+        paid out in full - progress can never be rolled back. */
+    private double reelCredit = 0.0;
+    /** Guaranteed shortening of the line per LMB stroke, blocks. */
+    public static final double PULL_PER_STROKE = 1.4;
+    /** RMB within this horizontal distance LANDS the fish; beyond it RMB is
+        a deliberate LET-GO. Those are the only two endings - the line never
+        snaps and the fight never decides anything on its own. */
+    public static final double LAND_DISTANCE = 3.4;
     private int lastReelStroke = -100;
     private int struggleTimer = 0;
 
@@ -314,21 +323,35 @@ public class BobberEntity extends Projectile {
             return 1;
         }
         if (state == STATE_HOOKED) {
-            // RMB during the fight = LET GO on purpose (never an accident -
-            // the reel stroke is LMB): the fish unhooks, swims away fine and
-            // dandy, and the line reels back empty.
-            if (this.level.getEntity(this.entityData.get(DATA_FISH_ID)) instanceof CustomFishEntity f) {
-                f.setHooked(false);
-                f.setInvulnerable(false);
-                f.setNoAi(false);
-                f.setDeltaMovement(new Vec3(this.random.nextGaussian() * 0.12, 0.05,
-                        this.random.nextGaussian() * 0.12));
-                f.hurtMarked = true;
-            }
+            // THE ONLY ENDING THERE IS. RMB (the "let go" button) decides:
+            //   fish pulled close  -> land it at your feet (that IS the catch);
+            //   fish still far away -> unhook and set it free, unharmed.
+            // Nothing else can end a fight - no line snap, no auto-land, no
+            // timer. You pull with LMB, you finish with RMB.
+            double rdx = player.getX() - this.getX();
+            double rdz = player.getZ() - this.getZ();
+            double horiz = Math.sqrt(rdx * rdx + rdz * rdz);
+            CustomFishEntity fish = this.level.getEntity(this.entityData.get(DATA_FISH_ID))
+                    instanceof CustomFishEntity f ? f : null;
             this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
-                    SoundEvents.FISHING_BOBBER_SPLASH, SoundSource.PLAYERS, 0.85f, 1.4f);
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                    "message.howtofish.fight_released"), true);
+                    SoundEvents.FISHING_BOBBER_SPLASH, SoundSource.PLAYERS, 0.9f,
+                    horiz <= LAND_DISTANCE ? 0.85f : 1.4f);
+            if (horiz <= LAND_DISTANCE) {
+                if (fish != null && fish.isAlive()) {
+                    releaseFish(player, fish);
+                }
+            } else {
+                if (fish != null) {
+                    fish.setHooked(false);
+                    fish.setInvulnerable(false);
+                    fish.setNoAi(false);
+                    fish.setDeltaMovement(new Vec3(this.random.nextGaussian() * 0.12, 0.05,
+                            this.random.nextGaussian() * 0.12));
+                    fish.hurtMarked = true;
+                }
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.howtofish.fight_released"), true);
+            }
             this.discardAndClean();
             return 0;
         }
@@ -344,11 +367,15 @@ public class BobberEntity extends Projectile {
      */
     public void applyReelStroke() {
         if (this.level.isClientSide || getState() != STATE_HOOKED) return;
-        if (this.tickCount - this.lastReelStroke < 4) return;
+        if (this.tickCount - this.lastReelStroke < 5) return;
         this.lastReelStroke = this.tickCount;
-        this.reelBoost = 26;
+        // Deterministic: this click SHORTENS THE LINE by a fixed pull, every
+        // single time, no rolls, no fail states, no timers. That is the whole
+        // fight - trade clicks for distance and finish it with RMB yourself.
+        this.reelCredit = Math.min(this.reelCredit + PULL_PER_STROKE, 6.0);
         this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
-                SoundEvents.FISHING_BOBBER_RETRIEVE, SoundSource.PLAYERS, 0.85f, 1.25f);
+                SoundEvents.FISHING_BOBBER_RETRIEVE, SoundSource.PLAYERS, 0.85f,
+                1.15f + this.random.nextFloat() * 0.15f);
     }
 
     /** Hook: the fish that bit is now attached and will be pulled out of the water. */
@@ -372,7 +399,7 @@ public class BobberEntity extends Projectile {
         this.entityData.set(DATA_FISH_ID, fish.getId());
         this.entityData.set(DATA_HOOK_DISTANCE, (float) player.distanceTo(this));
         this.setState(STATE_HOOKED);
-        this.reelBoost = 10;
+        this.reelCredit = 0.35;
         this.struggleTimer = 0;
 
         this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
@@ -407,56 +434,51 @@ public class BobberEntity extends Projectile {
         Vec3 diff = player.position().subtract(this.position());
         double horiz = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
 
-        // LANDED - but only when it is REALLY landed: the float dragged out
-        // of the water against the beach, or pulled into the player's hands /
-        // boat. Being close to someone who is still standing in the surf no
-        // longer counts - that was the "it ended on its own, but not on shore"
-        // complaint. The 1.4 failsafe keeps fights from deadlocking if the
-        // player wades right up to the float.
-        boolean dryShore = !this.level.getFluidState(this.blockPosition()).is(FluidTags.WATER);
-        boolean onDryPlayer = !this.level.getFluidState(player.blockPosition()).is(FluidTags.WATER);
-        if ((dryShore && horiz < 2.6) || horiz < 1.4 || (horiz < 2.6 && player.isPassenger())) {
-            releaseFish(player, fish);
-            this.discardAndClean();
-            return;
-        }
-
-        // THE FIGHT: the fish reels YOU back in bursts. Clicking (use) buys
-        // you real progress; doing nothing lets a heavy fish drag the float
-        // away until the line snaps at the limit. Heavier fish dash harder.
+        // THE FIGHT, ROUND 7 - STABLE BY CONSTRUCTION:
+        //  * the line can NEVER snap and this method NEVER ends the fight
+        //    (only RMB does - see retrieve(), or the fish dying);
+        //  * every queued reel stroke pays out a guaranteed pull, so LMB
+        //    always equals shorter line / closer fish;
+        //  * the fish's struggle drags the float back only within the bounds
+        //    it was hooked at - you can lose some ground, never the catch.
         this.hookedTicks++;
-        boolean dash = (this.hookedTicks % 80) < 26;
+        double weight = Mth.clamp(fish.getMaxHealth() * 0.006f, 0.02f, 0.11f);
+        boolean dash = (this.hookedTicks % 90) < 28;   // cosmetic burst rhythm
         if (this.entityData.get(DATA_STRUGGLE) != dash) {
             this.entityData.set(DATA_STRUGGLE, dash);
         }
-        double strength = 0.016 + Mth.clamp(fish.getMaxHealth() * 0.004f, 0.01f, 0.06f);
-        double drag = dash ? strength + 0.075 : strength;
-
-        double speed = 0.05;
-        if (this.reelBoost > 0) {
-            this.reelBoost--;
-            speed += 0.16;   // each right-click is a strong pull
+        if (dash && this.hookedTicks % 90 == 0 && this.level instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.SPLASH, this.getX(), this.getY() + 0.2, this.getZ(),
+                    10, 0.3, 0.15, 0.3, 0.12);          // visible "it pulled!" beat
         }
-        double netPull = speed - drag;
-        Vec3 dirH = new Vec3(diff.x / horiz, 0, diff.z / horiz);
-        double step = Math.min(Math.max(netPull, -(strength + 0.1)), Math.max(0.0, horiz - 1.8));
-        if (horiz > 3.0) {
-            step = Math.max(step, -(strength + 0.1)); // can be dragged away
-        }
-        // Glide along the water surface: keep the float at the surface height.
-        double surfaceY = findSurfaceY();
-        this.setPos(this.getX() + dirH.x * step, surfaceY, this.getZ() + dirH.z * step);
 
-        if (horiz > 28.0) {
-            // Too far - the line gives up.
+        double step = 0.0;
+        if (this.reelCredit > 1.0E-4) {
+            // Pay out the clicks - glide them over ticks so the line visibly
+            // shortens instead of teleporting. Stops at "kiss distance".
+            step = Math.min(this.reelCredit, Math.max(0.0, horiz - 1.0));
+            this.reelCredit = Math.max(0.0, this.reelCredit - Math.max(step, 0.14));
+        } else {
+            // No input: the fish tests the line, but the line holds.
+            step = dash ? -weight * 1.3 : -weight * 0.15;
+        }
+        double cap = Math.max(1.2, this.entityData.get(DATA_HOOK_DISTANCE));
+        double newHoriz = Mth.clamp(horiz - step, 1.0, cap);
+        if (horiz > 0.001) {
+            Vec3 dirH = new Vec3(diff.x / horiz, 0, diff.z / horiz);
+            this.setPos(this.getX() + dirH.x * (horiz - newHoriz),
+                    findSurfaceY(), this.getZ() + dirH.z * (horiz - newHoriz));
+        }
+        horiz = newHoriz;
+        diff = player.position().subtract(this.position());
+        Vec3 dirH = horiz > 0.001
+                ? new Vec3(diff.x / horiz, 0, diff.z / horiz)
+                : new Vec3(0, 0, 0);
+        if (horiz <= LAND_DISTANCE && this.hookedTicks % 40 == 0) {
+            // They've arrived - announce that the finish is THEIRS to press.
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                    "message.howtofish.fish_escaped"), true);
-            this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
-                    SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 0.7f, 1.6f);
-            this.discardAndClean();
-            return;
+                    "message.howtofish.land_prompt"), true);
         }
-        this.entityData.set(DATA_HOOK_DISTANCE, (float) Math.max(2.2, horiz));
         this.setYRot((float) (Mth.atan2(dirH.z, dirH.x) * (180F / Math.PI)) - 90.0f);
 
         // The fish swims BEHIND the float with a lively sideways struggle.
@@ -465,7 +487,7 @@ public class BobberEntity extends Projectile {
         Vec3 toFish = behind.subtract(fish.position());
         double fd = toFish.length();
         if (fd > 0.01) {
-            double pull = Mth.clamp(fd * 0.18, 0.07, 0.34) + (this.reelBoost > 0 ? 0.05 : 0.0);
+            double pull = Mth.clamp(fd * 0.18, 0.07, 0.34) + (this.reelCredit > 0.05 ? 0.05 : 0.0);
             double perp = Math.sin(this.struggleTimer * 0.4) * 0.05;
             Vec3 dir = toFish.normalize();
             Vec3 side = new Vec3(-dir.z, 0, dir.x);

@@ -239,47 +239,48 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
             head.y = 1.2f;
         }
 
+        // The mouth is CLOSED and quiet unless he is actually eating: the
+        // eyes and nose keep their surprise bulge, but the lips only part on
+        // a real bite. One bite = open fast, hold a beat, close, rest - a
+        // readable chomp rhythm instead of a constant nervous wobble.
         float chew = 0.0f;
         if (eating) {
-            // Chomp: jaw hinges open and shut on a timer, hand to mouth, and
-            // the chewing has an envelope - big hungry bites early, smaller
-            // contented ones as the swallow finishes.
-            float env = Mth.clamp(Math.min(entity.getEatTicks(), 60 - entity.getEatTicks()) / 5.0f, 0.25f, 1.0f);
-            chew = (Mth.sin(entity.getEatTicks() * 0.75f) * 0.5f + 0.5f) * env;
-            jaw.xRot = 0.18f + 0.72f * chew;
+            float wave = Mth.sin(entity.getEatTicks() * 0.32f);   // ~1 chomp / 1.0s
+            chew = wave > 0.0f ? Math.min(1.0f, wave * 1.7f) : 0.0f;
+        }
+        if (eating) {
+            jaw.xRot = 0.9f * chew;                    // beard hinges with the bite
             rightArm.xRot = -2.15f;
             rightArm.zRot = 0.5f;
             leftArm.xRot = -0.35f;
-            body.xRot = 0.06f + 0.03f * chew;
-            // Nodding along as he swallows.
-            head.xRot += Mth.sin(entity.getEatTicks() * 0.4f) * 0.06f;
+            body.xRot = 0.05f + 0.03f * chew;
+            // A small dip of the head on every swallow (the closing half).
+            head.xRot += chew > 0.3f ? 0.05f : 0.11f;
         } else {
-            // Not eating: the mouth still gapes open when the eyes pop.
-            jaw.xRot = 0.62f * bulge;
+            jaw.xRot = 0.0f;                           // mouth shut when idle
             rightArm.zRot = -0.04f - 0.28f * pop; // elbows out when shocked
             leftArm.zRot = 0.04f + 0.28f * pop;
             body.xRot = 0.0f;
         }
 
-        // ---- The 3D mouth: grow-and-bulge, driven by the same smoothstep ----
-        float mouthOpen = Math.max(bulge, eating ? 0.55f + 0.45f * chew : 0.0f);
-        float mo = mouthOpen * mouthOpen * (3.0f - 2.0f * mouthOpen);
-        float lipsS = 1.0f + 0.95f * mo;
+        // ---- The 3D mouth: GROWS ONLY WHILE BITING (bite = open, close,
+        //      rest). Cavity, teeth and tongue appear inside the parted lips. ----
+        float mo = chew * chew * (3.0f - 2.0f * chew);  // smoothstep of the bite
+        float lipsS = 1.0f + 0.75f * mo;
         mouthLips.xScale = lipsS;
         mouthLips.yScale = lipsS;
-        mouthLips.zScale = 1.0f + 0.5f * mo;
-        mouthLips.z = -4.0f - 1.15f * mo;                 // pushes OUT of the face
-        mouthLips.y = -1.6f + (eating ? 0.35f * chew : 0.0f);  // bobs on each bite
-        mouthInner.visible = mouthOpen > 0.10f;
-        float inS = 1.0f + 0.4f * mo;
+        mouthLips.zScale = 1.0f + 0.4f * mo;
+        mouthLips.z = -4.0f - 0.7f * mo;                 // lips lead out a bit
+        mouthLips.y = -1.6f + 0.3f * mo;                 // drop with the bite
+        mouthInner.visible = chew > 0.30f;               // only inside an open mouth
+        float inS = 0.8f + 0.5f * mo;
         mouthInner.xScale = inS;
         mouthInner.yScale = inS;
         mouthInner.zScale = 1.0f;
-        mouthInner.z = -3.7f - 0.15f * mo;
-        // The wet tongue flicks while chewing; teeth ride the palate.
-        tongue.y = 0.8f + (eating ? Mth.sin(ageInTicks * 1.35f) * 0.18f * chew : 0.0f);
-        tongue.x = Mth.sin(ageInTicks * 0.5f) * 0.08f * mo;
-        teeth.y = -0.9f - 0.06f * mo;
+        mouthInner.z = -3.7f - 0.1f * mo;
+        teeth.y = -0.9f - 0.05f * mo;                    // teeth ride the palate
+        tongue.y = 0.8f + Mth.sin(ageInTicks * 1.1f) * 0.16f * mo;  // wet flick
+        tongue.x = Mth.sin(ageInTicks * 0.5f) * 0.07f * mo;
     }
 
     @Override

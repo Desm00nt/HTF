@@ -85,5 +85,7 @@
     "message.howtofish.boss_retreated": "Time's up - the Spider Crab sank into the deep. Bait up and try again.",
     "message.howtofish.fight_released": "You let the line go - the fish swims away, unharmed.",
     "command.howtofish.fix.clean": "How To Fish check: everything is in its place.",
-    "command.howtofish.fix.result": "Put back in place: Sol x%s, boats x%s."
+    "command.howtofish.fix.result": "Put back in place: Sol x%s, boats x%s.",
+    "message.howtofish.land_prompt": "The fish is at your feet - press RMB to land it!",
+    "command.howtofish.help": "How To Fish: /howtofish fix - put the island's fixtures (Sol, boat) back in place."
 }
