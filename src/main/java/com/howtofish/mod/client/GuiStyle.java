@@ -41,9 +41,10 @@ public final class GuiStyle extends GuiComponent {
         if (headerBand) {
             fill(pose, x + 1, y + 1, x + w - 1, y + 18, HEADER_BG);
             fill(pose, x + 1, y + 18, x + w - 1, y + 19, 0xFF0A161E);
-            // twin porthole rivets on the header for character
-            fill(pose, x + 4, y + 9, 2, 2, 0xFF5A7A8C);
-            fill(pose, x + w - 6, y + 9, 2, 2, 0xFF5A7A8C);
+            // twin porthole rivets on the header for character (tiny 2x2s -
+            // mind the fill(x1,y1,x2,y2) contract, this is NOT width/height!)
+            fill(pose, x + 4, y + 9, x + 6, y + 11, 0xFF5A7A8C);
+            fill(pose, x + w - 6, y + 9, x + w - 4, y + 11, 0xFF5A7A8C);
         }
     }
 

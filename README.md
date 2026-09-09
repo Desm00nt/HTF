@@ -20,10 +20,10 @@ of the next island (read them on the Radar bar while in the boat).
 | Request | Implementation |
 | --- | --- |
 | New "Fishing" mode in world creation | Custom **World Type** ("How to Fish (Endless Ocean)") — see *World Type* / *More World Options* in the Create World screen. Minecraft doesn't let mods add a 4th vanilla Game Mode button (Survival/Hardcore/Creative) without invasive, version-fragile client hacks, so — as you allowed — it lives next to it, as a normal, 100% supported extension point. |
-| Endless ocean + island + lighthouse + boat + old man | `IslandBuilder` procedurally builds a sand island, a tall lighthouse with a glowing rotating-look beacon beam, a wooden dock, a spawned boat and Old Salty, the first time the custom world loads. His home is now a stepped A-frame **canvas tent** camp (ridgepole + lantern, door flaps, bedroll inside, camp fire ring, supply shed with barrels) instead of the old shack. |
+| Endless ocean + island + lighthouse + boat + old man | `IslandBuilder` procedurally builds a sand island, a tall lighthouse with a glowing rotating-look beacon beam, a wooden dock, a boat floating in open water past the pier head, and Old Salty, the first time the custom world loads. His home is a stepped A-frame **canvas tent** of white wool (ridgepole + lantern, door flaps, bedroll inside, camp fire ring, supply shed with barrels) instead of the old shack. |
 | New 3D fishing rod | `assets/howtofish/models/item/fishing_rod.json` — real 3D element geometry (handle + angled rod + tip), not a flat icon. Casts a physics bobber with a line drawn from the actual rod tip (`BobberRenderer`). |
 | Many new 3D fish, catch & release, kill for money | `CustomFishEntity` + `FishModel` (3D fish/crab/shrimp/lobster body with animated tail & fins). The rod always performs "catch & release" (see `FishingRodCustomItem`): a live fish spawns next to you and must be finished off with the Knife. |
-| Old Man NPC with feeding animation | `OldManEntity` + `OldManModel`: hand-painted detailed skin (brass-button coat, rolled sleeves, boots, hat band + anchor emblem), articulated jaw that chomps on a timer, **real eyeball cubes that physically bulge out of their sockets** (pupils only on the front now), a nose that swells and a mouth that gapes open with a teeth row (one gold crown included) whenever a player walks up holding fish or beer. He is **immortal and immovable**: seated on his stool by the tent, he only turns his head to every player within 16 blocks (head-only tracking goal, cannot be hit, pushed or despawned). Right-click to talk/shop; feed him fish meat / beer / trophy. Hand him a beer and he drinks it and returns the empty can - the boss lure. |
+| Old Man NPC with feeding animation | `OldManEntity` + `OldManModel`: hand-painted detailed skin (brass-button coat, rolled sleeves, boots, hat band + anchor emblem), articulated jaw that chomps on a timer — the open mouth shows a real dark cavity with an upper teeth row (one gold crown) and a pink tongue — **real eyeball cubes that physically bulge out of their sockets** (pupils only on the front now), a nose that swells and a mouth that gapes open with a teeth row (one gold crown included) whenever a player walks up holding fish or beer. He is **immortal and immovable**: seated on his stool by the tent, he only turns his head to every player within 16 blocks (head-only tracking goal, cannot be hit, pushed or despawned). Right-click to talk/shop; feed him fish meat / beer / trophy — and he will happily eat ANY good his shop sells (rod, radar, knife, bait) for a full-price refund. Hand him a beer and he drinks it and returns the empty can - the boss lure. |
 | Shop: rod 3₽, knife 4₽, beer 2₽, golden bait 15₽, radar 10₽ | `OldManShopMenu` / `OldManShopScreen` with item icons, live balance and coin SFX on purchase. |
 | Empty beer CAN is the boss bait | Sol drinks the beer and gives you `empty_can`. Put the can in the rod's bait slot (B-menu), cast: no nibbles - one hard plunge - hook it and `BossFishEntity` (Spider Crab) drags itself ashore. All bait behaviour is one enum (`BaitKind`: NONE / GOLDEN / CAN) so fish, rod and boss never reference each other's items directly. |
 | Radar gives coordinates after feeding a boss trophy | Kill the Spider Crab, feed its `spider_crab_shell` to Old Salty, then use the Radar while riding the boat. |
@@ -85,20 +85,24 @@ finished jar appears in `build/libs/`.
 1. Create a new world → **World Type: How to Fish (Endless Ocean)**.
 2. You spawn on the lighthouse island with 3 ₽. Right-click **Old Salty**
    (empty hand) to talk and open his shop (balance is shown at the bottom).
-3. Buy the **Fishing Rod** (3 ₽) — a full 3D build (cork grip, brass reel,
-   tapered varnished shaft with guides) and the line leaves its visible TIP.
-   Cast at the sea (right-click). Wait for the nibbles, hook on the big dip —
-   then a real fight starts: the fish DASHES in bursts (the HUD flashes
-   «CLICK NOW!»); tap right-click during every dash to win ground, the
-   progress meter shows how close it is. Slack off and a fat fish drags the
-   float out until the line snaps at 28 blocks.
+3. Buy the **Fishing Rod** (3 ₽) — a slim 3D build: speckled cork grip, brass
+   reel, long tapered varnished blank with a red tip and three steel guides;
+   the line leaves its visible TIP. Cast at the sea (right-click). Wait for
+   the nibbles, hook on the big dip (right-click) — then a real fight starts:
+   the fish DASHES in bursts (the HUD flashes «CLICK! (LMB)»); MASH
+   LEFT-CLICK during every dash to pump the reel, the progress meter shows
+   how close it is. Right-click during a fight is inert on purpose — it can
+   no longer reset your line. Slack off and a fat fish drags the float out
+   until the line snaps at 28 blocks.
 4. Buy the **Knife** (4 ₽) and finish the fish off.
 5. Bring the meat to Old Salty — his eyes pop out and he gulps it down,
    you get Rubles (cha-ching).
 6. Buy a **Beer** (2 ₽), right-click **Old Salty** with it - he gulps it
    down, belches and hands you the **empty can**. Press **B** with the rod in
    hand, drop the can into the bait slot and cast. No nibbles this time -
-   one hard plunge = **hook the Spider Crab boss**. It runs, leaps and slams;
+   one hard plunge = **hook the Spider Crab boss**. You have TWO MINUTES: a
+   white bar under the boss bar drains, and at zero the crab sinks and the
+   hunt is off. It runs, leaps and slams;
    wait for the freeze after its swipe and hit back. (The red circle is the
    LOCKED landing spot - the crab lands exactly inside it, so leave the
    circle the moment it stops growing.) The boss also drops 2-3 crab meat,
