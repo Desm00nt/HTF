@@ -62,9 +62,14 @@ public class ClientEvents {
                 boolean left = org.lwjgl.glfw.GLFW.glfwGetMouseButton(
                         mc.getWindow().getWindow(), org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT)
                         == org.lwjgl.glfw.GLFW.GLFW_PRESS;
-                if (left && !prevLeftDown && fightActive(mc)) {
+                // One stroke per fresh click AND a steady beat while the button
+                // is held - "pulling the line in" must read as continuous work,
+                // not as a slot-machine of single edges.
+                if (left && fightActive(mc) && (!prevLeftDown || ++reelHoldTicks >= 4)) {
                     ModNetwork.CHANNEL.sendToServer(new com.howtofish.mod.network.ReelClickPacket());
+                    reelHoldTicks = 0;
                 }
+                if (!left) reelHoldTicks = 0;
                 prevLeftDown = left;
             } else {
                 prevLeftDown = false;
@@ -72,6 +77,7 @@ public class ClientEvents {
         }
 
         private static boolean prevLeftDown;
+        private static int reelHoldTicks;
 
         private static boolean fightActive(Minecraft mc) {
             for (var e : mc.level.entitiesForRendering()) {

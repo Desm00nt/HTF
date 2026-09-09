@@ -90,9 +90,10 @@ finished jar appears in `build/libs/`.
    reel, long tapered varnished blank with a red tip and three steel guides;
    the line leaves its visible TIP. Cast at the sea (right-click). Wait for
    the nibbles, hook on the big dip (right-click) — then a STABLE fight
-   starts: every LEFT-CLICK measurably shortens the line (a fixed ~1.4-block
-   pull per stroke, glide-animated, HUD % climbs) and the fish comes closer
-   to the rod. Nothing is random and nothing is timed: the line can NOT snap
+   starts: hold or tap LEFT-CLICK and the line measurably shortens (fixed
+   ~1.4-block pull per stroke - a fresh click or a steady beat every 4 ticks
+   while held, glide-animated, HUD % climbs, the line twitches) and the fish
+   comes closer to the rod. Nothing is random and nothing is timed: the line can NOT snap
    and the fight can NOT end by itself - a dashing fish drags at most back
    to where it was hooked. You finish it YOURSELF with RMB: pulled close →
    the fish lands at your feet (real catch & release on the shore); still

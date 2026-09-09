@@ -190,8 +190,8 @@ public class OldManEntity extends PathfinderMob {
     }
 
     private void startEating() {
-        startEating(20);
-    }
+        startEating(90);   // long enough to SEE the bites (a 20-tick chew was
+    }                      // over before anyone looked - "the mouth never opens")
 
     /** Plays the chew animation for {@code duration} ticks (beer is gulped longer). */
     private void startEating(int duration) {
@@ -289,7 +289,7 @@ public class OldManEntity extends PathfinderMob {
             int refund = offer.get().price();
             PlayerCurrency.add(player, refund);
             held.shrink(1);
-            startEating(30);
+            startEating(64);
             this.level.playSound(null, this.blockPosition(), ModSounds.COIN.get(),
                     SoundSource.PLAYERS, 1.0f, 1.15f);
             player.displayClientMessage(Component.translatable("message.howtofish.fed_offer",
@@ -301,7 +301,7 @@ public class OldManEntity extends PathfinderMob {
             // He gulps the whole bottle down, belches, and returns the empty can:
             // the ONE thing the Spider Crab answers to as a rod bait.
             held.shrink(1);
-            startEating(44);
+            startEating(84);
             this.level.playSound(null, this.blockPosition(),
                     net.minecraft.sounds.SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS,
                     1.0f, 0.7f);

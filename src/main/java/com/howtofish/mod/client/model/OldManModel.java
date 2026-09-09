@@ -249,7 +249,7 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
             chew = wave > 0.0f ? Math.min(1.0f, wave * 1.7f) : 0.0f;
         }
         if (eating) {
-            jaw.xRot = 0.9f * chew;                    // beard hinges with the bite
+            jaw.xRot = 1.05f * chew;                   // beard hinges with the bite
             rightArm.xRot = -2.15f;
             rightArm.zRot = 0.5f;
             leftArm.xRot = -0.35f;
@@ -266,18 +266,18 @@ public class OldManModel extends HierarchicalModel<OldManEntity> {
         // ---- The 3D mouth: GROWS ONLY WHILE BITING (bite = open, close,
         //      rest). Cavity, teeth and tongue appear inside the parted lips. ----
         float mo = chew * chew * (3.0f - 2.0f * chew);  // smoothstep of the bite
-        float lipsS = 1.0f + 0.75f * mo;
+        float lipsS = 1.0f + 1.1f * mo;                  // DRAMATIC parting
         mouthLips.xScale = lipsS;
         mouthLips.yScale = lipsS;
-        mouthLips.zScale = 1.0f + 0.4f * mo;
-        mouthLips.z = -4.0f - 0.7f * mo;                 // lips lead out a bit
-        mouthLips.y = -1.6f + 0.3f * mo;                 // drop with the bite
-        mouthInner.visible = chew > 0.30f;               // only inside an open mouth
-        float inS = 0.8f + 0.5f * mo;
+        mouthLips.zScale = 1.0f + 0.45f * mo;
+        mouthLips.z = -4.05f - 1.25f * mo;               // lips lead far out
+        mouthLips.y = -1.6f + 0.4f * mo;                 // drop with the bite
+        mouthInner.visible = chew > 0.18f;               // cavity shows early
+        float inS = 0.85f + 0.55f * mo;
         mouthInner.xScale = inS;
         mouthInner.yScale = inS;
         mouthInner.zScale = 1.0f;
-        mouthInner.z = -3.7f - 0.1f * mo;
+        mouthInner.z = -3.75f - 0.25f * mo;              // peeks out between lips
         teeth.y = -0.9f - 0.05f * mo;                    // teeth ride the palate
         tongue.y = 0.8f + Mth.sin(ageInTicks * 1.1f) * 0.16f * mo;  // wet flick
         tongue.x = Mth.sin(ageInTicks * 0.5f) * 0.07f * mo;

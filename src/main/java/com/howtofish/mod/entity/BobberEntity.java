@@ -367,8 +367,12 @@ public class BobberEntity extends Projectile {
      */
     public void applyReelStroke() {
         if (this.level.isClientSide || getState() != STATE_HOOKED) return;
-        if (this.tickCount - this.lastReelStroke < 5) return;
+        if (this.tickCount - this.lastReelStroke < 3) return;
         this.lastReelStroke = this.tickCount;
+        if (this.level instanceof ServerLevel sl) {     // the line visibly twitches
+            sl.sendParticles(ParticleTypes.WATER_SPLASH, this.getX(), this.getY() + 0.35,
+                    this.getZ(), 4, 0.1, 0.05, 0.1, 0.05);
+        }
         // Deterministic: this click SHORTENS THE LINE by a fixed pull, every
         // single time, no rolls, no fail states, no timers. That is the whole
         // fight - trade clicks for distance and finish it with RMB yourself.
