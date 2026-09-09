@@ -43,7 +43,8 @@ public final class ModCommands {
             if (needsPutingBack(sol, home, 1.2)) {
                 sol.teleportTo(home.getX() + 0.5, home.getY(), home.getZ() + 0.5);
                 sol.setDeltaMovement(Vec3.ZERO);
-                sol.setRot(0.0F, 0.0F);        // stool faces the sea (south)
+                sol.setYRot(0.0F);             // stool faces the sea (south)
+                sol.setXRot(0.0F);
                 sol.yHeadRot = 0.0F;
                 sol.setHealth(sol.getMaxHealth());
                 solFixed++;
@@ -68,9 +69,10 @@ public final class ModCommands {
         }
 
         final int fSol = solFixed, fBoat = boatFixed;
-        src.sendSuccess(() -> fSol == 0 && fBoat == 0
+        final Component msg = fSol == 0 && fBoat == 0
                 ? Component.translatable("command.howtofish.fix.clean")
-                : Component.translatable("command.howtofish.fix.result", fSol, fBoat), true);
+                : Component.translatable("command.howtofish.fix.result", fSol, fBoat);
+        src.sendSuccess(() -> msg, true);
         return 1 + fSol + fBoat;
     }
 
