@@ -21,12 +21,13 @@ of the next island (read them on the Radar bar while in the boat).
 | --- | --- |
 | New "Fishing" mode in world creation | Custom **World Type** ("How to Fish (Endless Ocean)") — see *World Type* / *More World Options* in the Create World screen. Minecraft doesn't let mods add a 4th vanilla Game Mode button (Survival/Hardcore/Creative) without invasive, version-fragile client hacks, so — as you allowed — it lives next to it, as a normal, 100% supported extension point. |
 | Endless ocean + island + lighthouse + boat + old man | `IslandBuilder` procedurally builds a sand island, a tall lighthouse with a glowing rotating-look beacon beam, a wooden dock, a boat floating in open water past the pier head, and Old Salty, the first time the custom world loads. His home is a stepped A-frame **canvas tent** of white wool (ridgepole + lantern, door flaps, bedroll inside, camp fire ring, supply shed with barrels) instead of the old shack. |
-| New 3D fishing rod | `assets/howtofish/models/item/fishing_rod.json` — real 3D element geometry (handle + angled rod + tip), not a flat icon. Casts a physics bobber with a line drawn from the actual rod tip (`BobberRenderer`). |
+| New 3D fishing rod | `assets/howtofish/models/item/fishing_rod.json` — real 3D element geometry (handle + angled rod + tip), not a flat icon - fully modelled in `tools/paint_textures.py` (ROD_PARTS): speckled cork grip, brass reel, tapered varnished blank, red tip, three steel guides, plus held/GUI display transforms. Casts a physics bobber with a line drawn from the actual rod tip (`BobberRenderer`). (The element faces reference `#texture`, and the model's `textures` map defines exactly that key - an unreferenced `layer0` there silently renders the item INVISIBLE.) |
 | Many new 3D fish, catch & release, kill for money | `CustomFishEntity` + `FishModel` (3D fish/crab/shrimp/lobster body with animated tail & fins). The rod always performs "catch & release" (see `FishingRodCustomItem`): a live fish spawns next to you and must be finished off with the Knife. |
-| Old Man NPC with feeding animation | `OldManEntity` + `OldManModel`: hand-painted detailed skin (brass-button coat, rolled sleeves, boots, hat band + anchor emblem), articulated jaw that chomps on a timer — the open mouth shows a real dark cavity with an upper teeth row (one gold crown) and a pink tongue — **real eyeball cubes that physically bulge out of their sockets** (pupils only on the front now), a nose that swells and a mouth that gapes open with a teeth row (one gold crown included) whenever a player walks up holding fish or beer. He is **immortal and immovable**: seated on his stool by the tent, he only turns his head to every player within 16 blocks (head-only tracking goal, cannot be hit, pushed or despawned). Right-click to talk/shop; feed him fish meat / beer / trophy — and he will happily eat ANY good his shop sells (rod, radar, knife, bait) for a full-price refund. Hand him a beer and he drinks it and returns the empty can - the boss lure. |
+| Old Man NPC with feeding animation | `OldManEntity` + `OldManModel`: hand-painted detailed skin (brass-button coat, rolled sleeves, boots, hat band + anchor emblem), articulated jaw that chomps on a timer. The mouth is now **real 3D geometry, not paint**: a lips plate on the face, a dark cavity plate behind it and a teeth row + wet tongue floating in the cavity - and absolutely NO mouth drawn anywhere on the textures (not behind the nose, not on the head bottom, not on the beard's underside). **Real eyeball cubes physically bulge out of their sockets** (pupils only on the front), the nose swells, and the whole mouth assembly grows and pushes OUT of the face on the same smoothstep as the eyes whenever a player walks up holding fish or beer. Chewing is continuous: bite-size oscillation with an envelope (hungry chomps first, settled swallows last), lips bobbing against the teeth, tongue flicking. He is **immortal and immovable**: seated on his stool by the tent, he only turns his head to every player within 16 blocks (head-only tracking goal, cannot be hit, pushed or despawned). Right-click to talk/shop; feed him fish meat / beer / trophy — and he will happily eat ANY good his shop sells (rod, radar, knife, bait) for a full-price refund. Hand him a beer and he drinks it and returns the empty can - the boss lure. |
 | Shop: rod 3₽, knife 4₽, beer 2₽, golden bait 15₽, radar 10₽ | `OldManShopMenu` / `OldManShopScreen` with item icons, live balance and coin SFX on purchase. |
 | Empty beer CAN is the boss bait | Sol drinks the beer and gives you `empty_can`. Put the can in the rod's bait slot (B-menu), cast: no nibbles - one hard plunge - hook it and `BossFishEntity` (Spider Crab) drags itself ashore. All bait behaviour is one enum (`BaitKind`: NONE / GOLDEN / CAN) so fish, rod and boss never reference each other's items directly. |
-| Radar gives coordinates after feeding a boss trophy | Kill the Spider Crab, feed its `spider_crab_shell` to Old Salty, then use the Radar while riding the boat. |
+| `/howtofish fix` - state doctor | Re-runs the island's "things must be in their places" pass WITHOUT deleting or rebuilding anything: Old Sol (who remembers his stool position in NBT) is teleported back if something flung him away, the moored boat is put back at its post - or a fresh one spawns if it drowned. Free-roaming fish and the boss are deliberately left alone. |
+| Radar gives coordinates after feeding a boss trophy | Kill the Spider Crab, feed its `spider_crab_shell` to Old Salty, then use the Radar while riding the boat. The screen is turned to the viewer with the display transforms (also in FIRST person - the held radar shows its compass screen, never the case back). |
 | Different fish: different HP/price | `FishType` enum — 6 species with individual health & Ruble value. |
 | Money shown top-left near health | `CurrencyHudOverlay` (client HUD overlay). |
 | Cool lighthouse | Tall brick tower + glass lamp room + `LighthouseLampBlock`/`LighthouseLampBlockEntity` rendering a tall glowing beam (reuses the vanilla Beacon beam shader) visible from far out at sea. |
@@ -91,9 +92,12 @@ finished jar appears in `build/libs/`.
    the nibbles, hook on the big dip (right-click) — then a real fight starts:
    the fish DASHES in bursts (the HUD flashes «CLICK! (LMB)»); MASH
    LEFT-CLICK during every dash to pump the reel, the progress meter shows
-   how close it is. Right-click during a fight is inert on purpose — it can
-   no longer reset your line. Slack off and a fat fish drags the float out
-   until the line snaps at 28 blocks.
+   how close it is. Right-click during a fight means GIVE UP on purpose:
+   the fish unhooks and swims away unharmed, the line reels back empty.
+   Landing is honest too - the fight only ends when the float is actually
+   dragged onto the DRY beach or pulled into your hands/boat, never merely
+   because you stand 3 blocks away in the surf. Slack off and a fat fish
+   drags the float out until the line snaps at 28 blocks.
 4. Buy the **Knife** (4 ₽) and finish the fish off.
 5. Bring the meat to Old Salty — his eyes pop out and he gulps it down,
    you get Rubles (cha-ching).
@@ -122,7 +126,8 @@ finished jar appears in `build/libs/`.
 - The inventory screen shows ALL NINE hotbar slots in one row: slots 1-3 are
   the active equipment cells (golden frame), 4-9 are a visible reserve that the
   player can rearrange - items are NEVER silently shuffled out of them (that
-  old "item became dirt in a hidden slot" race is gone).
+  old "item became dirt in a hidden slot" race is gone). Nothing but the slot
+  row is drawn on the screen - the «equipment» caption was removed as noise.
 
 ## Known limitations / notes for further work
 
