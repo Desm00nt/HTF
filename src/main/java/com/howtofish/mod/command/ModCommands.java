@@ -69,10 +69,12 @@ public final class ModCommands {
         }
 
         final int fSol = solFixed, fBoat = boatFixed;
-        final Component msg = fSol == 0 && fBoat == 0
+        // NOTE: this mapping set's sendSuccess takes a plain Component
+        // (the Supplier variant is a later-version thing).
+        Component msg = fSol == 0 && fBoat == 0
                 ? Component.translatable("command.howtofish.fix.clean")
                 : Component.translatable("command.howtofish.fix.result", fSol, fBoat);
-        src.sendSuccess(() -> msg, true);
+        src.sendSuccess(msg, true);
         return 1 + fSol + fBoat;
     }
 
