@@ -370,7 +370,7 @@ public class BobberEntity extends Projectile {
         if (this.tickCount - this.lastReelStroke < 3) return;
         this.lastReelStroke = this.tickCount;
         if (this.level instanceof ServerLevel sl) {     // the line visibly twitches
-            sl.sendParticles(ParticleTypes.WATER_SPLASH, this.getX(), this.getY() + 0.35,
+            sl.sendParticles(ParticleTypes.SPLASH, this.getX(), this.getY() + 0.35,
                     this.getZ(), 4, 0.1, 0.05, 0.1, 0.05);
         }
         // Deterministic: this click SHORTENS THE LINE by a fixed pull, every
