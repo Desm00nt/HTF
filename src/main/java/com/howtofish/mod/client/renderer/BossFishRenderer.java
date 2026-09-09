@@ -14,11 +14,20 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Boss renderer: the crab model + the special-attack telegraph - a glowing
- * RED CIRCLE drawn on the ground that follows the target player until the
- * crab jumps onto that spot.
+ * RED CIRCLE that widens under the victim while the crab charges, and then
+ * KEEPS BURNING at the locked landing spot while the crab is airborne. The
+ * circle is read from the entity's synced DATA_LEAP_POS - the very vector
+ * the server steers the flight towards - so what the player sees is exactly
+ * where the slam will land. It is the ultimate, not a suggestion.
+ * <p>
+ * NOTE: entity renderers get a pose stack whose origin is the entity's
+ * interpolated position (camera-relative). The circle used to be fed raw
+ * WORLD coordinates, which placed it hundreds of blocks away - everything
+ * here is converted to bobber-relative space first.
  */
 public class BossFishRenderer extends MobRenderer<BossFishEntity, CrabModel> {
     private static final ResourceLocation TEXTURE =
@@ -38,70 +47,103 @@ public class BossFishRenderer extends MobRenderer<BossFishEntity, CrabModel> {
     @Override
     public void render(BossFishEntity entity, float entityYaw, float partialTicks, PoseStack poseStack,
                        MultiBufferSource buffer, int light) {
-        // Model scale.
+        renderTelegraphCircle(entity, partialTicks, poseStack, buffer, light);
+
+        // Model scale (uniform, around the entity origin at its feet - the
+        // standard 24-unit model grid keeps the legs on the ground).
         poseStack.pushPose();
-        poseStack.scale(1.55f, 1.55f, 1.55f);
+        poseStack.scale(1.5f, 1.5f, 1.5f);
 
         // Shake violently during the telegraph.
         if (entity.getBossState() == BossFishEntity.STATE_TELEGRAPH) {
-            float intensity = 0.06f * (0.4f + 0.6f * entity.getTelegraphTicks() / (float) TELEGRAPH_TIME);
+            float intensity = 0.09f * (0.4f + 0.6f * entity.getTelegraphTicks() / (float) TELEGRAPH_TIME);
             float dx = (entity.tickCount % 2 == 0 ? 1 : -1) * intensity;
             float dy = (entity.tickCount % 3 == 0 ? 1 : -1) * intensity * 0.5f;
             poseStack.translate(dx, dy, dx * 0.6f);
         }
 
-        // Droop slightly while stunned (defeated pose).
+        // Crouch slightly while charging, droop while stunned.
         if (entity.getBossState() == BossFishEntity.STATE_STUNNED) {
             poseStack.translate(0, 0.12f, 0);
         }
 
         super.render(entity, entityYaw, partialTicks, poseStack, buffer, light);
         poseStack.popPose();
-
-        renderTelegraphCircle(entity, partialTicks, poseStack, buffer);
     }
 
-    /** Draws the growing red circle under the target player. */
+    /** Draws the red circle at the SYNCED strike spot (grows during the
+     *  telegraph, stays lit & pulsing at the locked point during the flight). */
     private void renderTelegraphCircle(BossFishEntity entity, float partialTicks, PoseStack poseStack,
-                                       MultiBufferSource buffer) {
-        if (entity.getBossState() != BossFishEntity.STATE_TELEGRAPH) return;
+                                       MultiBufferSource buffer, int light) {
+        int state = entity.getBossState();
+        if (state != BossFishEntity.STATE_TELEGRAPH && state != BossFishEntity.STATE_LEAPING) return;
 
-        // The circle tracks the nearest living player (mirrors the server target).
-        Player target = nearestPlayer(entity);
-        if (target == null) return;
+        // The server tracks the victim with DATA_LEAP_POS every tick during
+        // the charge and FREEZES it on leap start - we render exactly that.
+        Vec3 spot = entity.hasLeapTarget() ? entity.getLeapTarget() : null;
+        if (spot == null) {
+            Player target = nearestPlayer(entity);
+            if (target == null) return;
+            spot = target.getPosition(partialTicks);
+        }
 
-        float progress = 1.0f - entity.getTelegraphTicks() / (float) TELEGRAPH_TIME; // 0 -> 1
-        float radius = 0.6f + 2.2f * progress;
-        float pulse = 0.5f + 0.5f * Mth.sin((entity.tickCount + partialTicks) * 0.6f);
-        int alphaOuter = (int) (55 + 40 * pulse);
-        int alphaInner = (int) (90 + 50 * pulse);
+        boolean leaping = state == BossFishEntity.STATE_LEAPING;
+        float progress = leaping ? 1.0f
+                : 1.0f - entity.getTelegraphTicks() / (float) TELEGRAPH_TIME; // 0 -> 1
+        float radius = 0.7f + 2.1f * progress;
+        float pulse = 0.5f + 0.5f * Mth.sin((entity.tickCount + partialTicks) * (leaping ? 1.3f : 0.7f));
+        int alphaFill = (int) (70 + 60 * pulse) + (leaping ? 30 : 0);
+        int alphaRing = (int) (170 + 80 * progress);
 
-        double cx = target.getX();
-        double cy = target.getY() + 0.08;
-        double cz = target.getZ();
+        // Positions relative to the renderer's origin (the interpolated entity).
+        Vec3 ep = entity.getPosition(partialTicks);
+        float cx = (float) (spot.x - ep.x);
+        float cy = (float) (spot.y - ep.y) + 0.06f;
+        float cz = (float) (spot.z - ep.z);
 
         poseStack.pushPose();
         VertexConsumer vc = buffer.getBuffer(RenderType.lightning());
-        drawCircle(vc, poseStack, cx, cy, cz, radius, 255, 30, 30, alphaOuter);
-        drawCircle(vc, poseStack, cx, cy + 0.01, cz, radius * 0.8f, 255, 60, 40, alphaInner);
-        drawCircle(vc, poseStack, cx, cy + 0.02, cz, radius * 0.35f, 255, 120, 90, alphaInner);
+        // Soft filled disc, then a bright tightening ring, then a core flash.
+        drawDisc(vc, poseStack, cx, cy, cz, radius, 255, 40, 30, alphaFill);
+        drawRing(vc, poseStack, cx, cy + 0.01f, cz, radius, radius + 0.22f, 255, 70, 45, alphaRing);
+        drawDisc(vc, poseStack, cx, cy + 0.02f, cz, radius * 0.3f, 255, 150, 110, (int) (70 + 100 * progress));
+        if (leaping) {
+            // A bright countdown ring collapsing onto the spot while it flies.
+            float t = (entity.tickCount % 20) / 20.0f;
+            drawRing(vc, poseStack, cx, cy + 0.03f, cz,
+                    radius * (1.3f - t), radius * (1.3f - t) + 0.12f,
+                    255, 220, 60, 200);
+        }
         poseStack.popPose();
     }
 
-    private void drawCircle(VertexConsumer vc, PoseStack poseStack, double cx, double cy, double cz,
-                            float radius, int r, int g, int b, int a) {
+    private void drawDisc(VertexConsumer vc, PoseStack poseStack, float cx, float cy, float cz,
+                          float radius, int r, int g, int b, int a) {
         var pose = poseStack.last().pose();
-        int segments = 26;
+        int segments = 32;
         for (int i = 0; i < segments; i++) {
             float a0 = (float) (Math.PI * 2 * i / segments);
             float a1 = (float) (Math.PI * 2 * (i + 1) / segments);
-            float x0 = (float) (cx + Math.cos(a0) * radius);
-            float z0 = (float) (cz + Math.sin(a0) * radius);
-            float x1 = (float) (cx + Math.cos(a1) * radius);
-            float z1 = (float) (cz + Math.sin(a1) * radius);
-            vc.vertex(pose, (float) cx, (float) cy, (float) cz).color(r, g, b, a).endVertex();
-            vc.vertex(pose, x0, (float) cy, z0).color(r, g, b, a).endVertex();
-            vc.vertex(pose, x1, (float) cy, z1).color(r, g, b, a).endVertex();
+            vc.vertex(pose, cx, cy, cz).color(r, g, b, a).endVertex();
+            vc.vertex(pose, cx + Mth.cos(a0) * radius, cy, cz + Mth.sin(a0) * radius).color(r, g, b, a).endVertex();
+            vc.vertex(pose, cx + Mth.cos(a1) * radius, cy, cz + Mth.sin(a1) * radius).color(r, g, b, a).endVertex();
+        }
+    }
+
+    private void drawRing(VertexConsumer vc, PoseStack poseStack, float cx, float cy, float cz,
+                          float inner, float outer, int r, int g, int b, int a) {
+        var pose = poseStack.last().pose();
+        int segments = 40;
+        for (int i = 0; i < segments; i++) {
+            float a0 = (float) (Math.PI * 2 * i / segments);
+            float a1 = (float) (Math.PI * 2 * (i + 1) / segments);
+            float c0 = Mth.cos(a0), s0 = Mth.sin(a0), c1 = Mth.cos(a1), s1 = Mth.sin(a1);
+            vc.vertex(pose, cx + c0 * inner, cy, cz + s0 * inner).color(r, g, b, a).endVertex();
+            vc.vertex(pose, cx + c0 * outer, cy, cz + s0 * outer).color(r, g, b, a).endVertex();
+            vc.vertex(pose, cx + c1 * outer, cy, cz + s1 * outer).color(r, g, b, a).endVertex();
+            vc.vertex(pose, cx + c0 * inner, cy, cz + s0 * inner).color(r, g, b, a).endVertex();
+            vc.vertex(pose, cx + c1 * outer, cy, cz + s1 * outer).color(r, g, b, a).endVertex();
+            vc.vertex(pose, cx + c1 * inner, cy, cz + s1 * inner).color(r, g, b, a).endVertex();
         }
     }
 

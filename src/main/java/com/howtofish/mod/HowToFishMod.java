@@ -35,6 +35,7 @@ import org.apache.logging.log4j.Logger;
 public class HowToFishMod {
 
     public static final String MOD_ID = "howtofish";
+    public static final String MOD_VERSION = "1.0.5";   // logged on startup + jar name
     public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
 
     public HowToFishMod() {
@@ -56,7 +57,7 @@ public class HowToFishMod {
 
         ModWorldGen.register();
 
-        LOGGER.info("How To Fish mod loaded - cast your line!");
+        LOGGER.info("How To Fish v{} loaded - cast your line!", MOD_VERSION);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

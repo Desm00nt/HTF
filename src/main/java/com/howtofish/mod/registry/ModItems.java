@@ -33,9 +33,11 @@ public class ModItems {
     public static final RegistryObject<Item> BAIT = ITEMS.register("bait",
             () -> new com.howtofish.mod.item.BaitItem(base().stacksTo(1)));
 
+    /** Beer - the Spider Crab's lure (kept stackable: bait for repeated expeditions). */
     public static final RegistryObject<Item> BEER = ITEMS.register("beer",
             () -> new BeerItem(base().stacksTo(8)));
 
+    // Passively-obtained from Sol when he finishes a beer; ONLY a rod bait (see BaitKind.CAN).
     public static final RegistryObject<Item> EMPTY_CAN = ITEMS.register("empty_can",
             () -> new EmptyCanItem(base().stacksTo(16)));
 
