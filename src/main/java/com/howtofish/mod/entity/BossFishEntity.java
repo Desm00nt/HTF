@@ -94,6 +94,17 @@ public class BossFishEntity extends Monster {
             BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
 
     /**
+     * The 2-minute hunt window. Shown as a WHITE bar right under the health
+     * bar (vanilla stacks multiple bars downward). When it runs out the crab
+     * simply sinks - no reward, no fight, the sea keeps its secret.
+     */
+    public static final int RETREAT_TICKS = 2400;
+    private final ServerBossEvent retreatBar = new ServerBossEvent(
+            Component.translatable("boss.howtofish.retreat"),
+            BossEvent.BossBarColor.WHITE, BossEvent.BossBarOverlay.PROGRESS);
+    private int retreatTicks = RETREAT_TICKS;
+
+    /**
      * THE one and only way the boss enters the world: the fishing bobber (or
      * anything else later - quests, commands) calls this with a position.
      * Boss internals (music, FX, targeting) live HERE, so fish and boss code
@@ -195,6 +206,24 @@ public class BossFishEntity extends Monster {
         this.bossBar.setProgress(Mth.clamp(this.getHealth() / this.getMaxHealth(), 0.0f, 1.0f));
         if (this.level.isClientSide) {
             return;
+        }
+        // THE HUNT TIMER: white bar under the health bar; at zero he leaves.
+        if (this.isAlive() && this.retreatTicks > 0) {
+            this.retreatTicks--;
+            this.retreatBar.setProgress(this.retreatTicks / (float) RETREAT_TICKS);
+            if (this.retreatTicks % 20 == 0 || this.retreatTicks == 200) {
+                int secs = Math.max(0, (this.retreatTicks + 19) / 20);
+                this.retreatBar.setName(Component.translatable("boss.howtofish.retreat_timer", secs));
+            }
+            if (this.retreatTicks == 600 || this.retreatTicks == 300) {
+                // Audible reminder that the clock is running out.
+                this.level.playSound(null, this.blockPosition(), net.minecraft.sounds.SoundEvents.WOLF_GROWL,
+                        SoundSource.HOSTILE, 1.4f, 0.55f);
+            }
+            if (this.retreatTicks <= 0) {
+                this.retreatIntoSea();
+                return;
+            }
         }
 
         LivingEntity target = getTarget();
@@ -506,19 +535,46 @@ public class BossFishEntity extends Monster {
             }
         }
         this.bossBar.setProgress(0.0f);
+        this.retreatBar.setProgress(0.0f);
         this.bossBar.removeAllPlayers();
+        this.retreatBar.removeAllPlayers();
     }
 
     @Override
     public void startSeenByPlayer(ServerPlayer player) {
         super.startSeenByPlayer(player);
         this.bossBar.addPlayer(player);
+        this.retreatBar.addPlayer(player);
     }
 
     @Override
     public void stopSeenByPlayer(ServerPlayer player) {
         super.stopSeenByPlayer(player);
         this.bossBar.removePlayer(player);
+        this.retreatBar.removePlayer(player);
+    }
+
+    /** Timer expired: the crab sinks. No drops, no kill credit - just gone. */
+    private void retreatIntoSea() {
+        this.retreatBar.setProgress(0.0f);
+        this.retreatBar.removeAllPlayers();
+        this.bossBar.removeAllPlayers();
+        this.level.playSound(null, this.blockPosition(), net.minecraft.sounds.SoundEvents.GENERIC_SPLASH,
+                SoundSource.HOSTILE, 2.0f, 0.45f);
+        if (this.level instanceof ServerLevel sl) {
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.SPLASH,
+                    this.getX(), this.getY() + 0.4, this.getZ(), 60, 0.7, 0.35, 0.7, 0.35);
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.BUBBLE,
+                    this.getX(), this.getY() + 0.2, this.getZ(), 40, 0.7, 0.5, 0.7, 0.15);
+            ModNetwork.CHANNEL.send(
+                    net.minecraftforge.network.PacketDistributor.DIMENSION.with(() -> sl.dimension()),
+                    new BossMusicStopPacket());
+            for (net.minecraft.server.level.ServerPlayer p : sl.getPlayers(
+                    pl -> pl.distanceToSqr(this) < 96 * 96)) {
+                p.displayClientMessage(Component.translatable("message.howtofish.boss_retreated"), false);
+            }
+        }
+        this.discard();
     }
 
     @Override
@@ -526,6 +582,7 @@ public class BossFishEntity extends Monster {
         super.remove(reason);
         if (!this.level.isClientSide) {
             this.bossBar.removeAllPlayers();
+            this.retreatBar.removeAllPlayers();
         }
     }
 

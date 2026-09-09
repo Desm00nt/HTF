@@ -117,14 +117,13 @@ public class BobberRenderer extends EntityRenderer<BobberEntity> {
         double flatLen = Math.sqrt(flat.x * flat.x + flat.z * flat.z);
         flat = flatLen > 1.0e-4 ? flat.scale(1.0 / flatLen) : new Vec3(1, 0, 0);
 
-        // Anchor = the projected TIP of the 3D rod model (its shaft reaches
-        // y=21 px under the firstperson transform [-74,-38,-114]), so the
-        // line leaves the visible tip, not the middle of the stick. If the
-        // model's display transforms change, tune these three constants.
+        // Anchor = the projected TIP of the 3D rod model. It follows the red
+        // tip of ROD_PARTS under the firstperson transform [20,0,-32]; if the
+        // rod display ever changes again, tune these three constants to it.
         return eye
-                .add(look.scale(0.9 + swing * 0.28))            // far forward - to the tip
-                .add(flat.scale(sideSign * (0.45 - swing * 0.22))) // along the holding arm
-                .add(0.0, -0.06 + swing * 0.5 + bob, 0.0);     // wrist rise on the cast
+                .add(look.scale(0.85 + swing * 0.28))            // out to the tip
+                .add(flat.scale(sideSign * (0.42 - swing * 0.22))) // along the holding arm
+                .add(0.0, 0.10 + swing * 0.45 + bob, 0.0);      // raised onto the blank's line
     }
 
     /**

@@ -75,8 +75,12 @@
     "message.howtofish.gave_beer": "§6Старый Сол с хряськом допил пиво и протянул вам пустую банку — её наживляют на удочку!",
     "message.howtofish.can_used": "Банка ушла ко дну — краб забрал её себе (одна банка - один заброс).",
     "message.howtofish.canForRod": "Пустая банка поблескивает под водой... ждите глубокую поклёвку",
-    "message.howtofish.reel_now": "Подсёк! Жми ПКМ по удочке, пока рыба дёргается!",
+    "message.howtofish.reel_now": "Подсёк! Держи удочку и ЖМИ ЛКМ, пока рыба дёргается! ПКМ больше ничего не сбрасывает.",
     "message.howtofish.fish_escaped": "Леска лопнула - рыба ушла в море…",
-    "hud.howtofish.click_now": "ЖМИ ПКМ!",
-    "hud.howtofish.hold": "передышка… готовься"
+    "hud.howtofish.click_now": "ЖМИ ЛКМ!",
+    "hud.howtofish.hold": "передышка… жди рывок",
+    "message.howtofish.fed_offer": "Сол одобрительно кивает и проглатывает %s. Возврат: %s ₽",
+    "boss.howtofish.retreat": "Паук-краб уходит под воду",
+    "boss.howtofish.retreat_timer": "Осталось %s с",
+    "message.howtofish.boss_retreated": "Время вышло - паук-краб ушёл на глубину. Наживку - и попробуй снова."
 }

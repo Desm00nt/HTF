@@ -19,12 +19,12 @@ public final class GuiStyle extends GuiComponent {
     public static final int PANEL_EDGE  = 0xFF2A3E47;
     public static final int PANEL_BOT   = 0xFF0C1418;
     public static final int HEADER_BG   = 0xF022343E; // slightly lighter header band
-    public static final int SLOT_BG     = 0xC0081219; // recessed cell
+    public static final int SLOT_BG     = 0x4C000000; // faint inset shadow (vanilla-like)
     public static final int SLOT_EDGE   = 0xFF33505E;
-    public static final int SLOT_HOVER  = 0x5038D0A0;
+    public static final int SLOT_HOVER  = 0x2AFFFFFF; // soft light wash on hover
     public static final int GOLD        = 0xFFE9D9A8;
     public static final int GOLD_FRAME  = 0xFFC89B3C;
-    public static final int ACTIVE_GLOW = 0x3D38D0A0; // teal wash for "active" cells
+    public static final int ACTIVE_GLOW = 0x1E38D0A0; // very light teal tint for "active" cells
     public static final int TEXT_LABEL  = 0xFFBFE8FF;
     public static final int TEXT_DIM    = 0xFF6E8894;
     public static final int TEAL        = 0xFF38D0A0;

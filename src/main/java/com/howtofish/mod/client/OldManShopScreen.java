@@ -48,11 +48,12 @@ public class OldManShopScreen extends AbstractContainerScreen<OldManShopMenu> {
         GuiStyle.panel(poseStack, leftPos, topPos, imageWidth, imageHeight, true);
         for (int i = 0; i < OldManShopMenu.OFFERS.size(); i++) {
             int ry = topPos + 30 + i * ROW_H;
-            // row plate + hover highlight
-            fill(poseStack, leftPos + 8, ry, leftPos + imageWidth - 8, ry + ROW_H - 2, 0x50081219);
             boolean hover = mouseX >= leftPos + 8 && mouseX < leftPos + imageWidth - 8
                     && mouseY >= ry && mouseY < ry + ROW_H - 2;
-            if (hover) fill(poseStack, leftPos + 8, ry, leftPos + imageWidth - 8, ry + ROW_H - 2, 0x2838D0A0);
+            // Only a hairline divider per row now - no more wide coloured
+            // plates flooding the list.
+            fill(poseStack, leftPos + 8, ry + ROW_H - 2, leftPos + imageWidth - 8, ry + ROW_H - 1,
+                    hover ? 0xFF38D0A0 : 0x33FFFFFF);
             GuiStyle.slotCell(poseStack, leftPos + 10, ry + 1, false, hover);
         }
         GuiStyle.separator(poseStack, leftPos + 8, topPos + imageHeight - 18, imageWidth - 16);

@@ -22,5 +22,6 @@ public class ModNetwork {
         CHANNEL.registerMessage(id++, OpenRodMenuPacket.class, OpenRodMenuPacket::encode, OpenRodMenuPacket::decode, OpenRodMenuPacket::handle);
         CHANNEL.registerMessage(id++, SyncRadarPacket.class, SyncRadarPacket::encode, SyncRadarPacket::decode, SyncRadarPacket::handle);
         CHANNEL.registerMessage(id++, BossMusicStopPacket.class, BossMusicStopPacket::encode, BossMusicStopPacket::decode, BossMusicStopPacket::handle);
+        CHANNEL.registerMessage(id++, ReelClickPacket.class, ReelClickPacket::encode, ReelClickPacket::decode, ReelClickPacket::handle);
     }
 }

@@ -43,7 +43,9 @@ public class IslandBuilder {
         buildTent(level, origin.offset(-4, 0, 0));
         buildPier(level, origin.offset(-6, 0, 8));
         decorateMeadow(level, origin, 1337);
-        spawnBoat(level, origin.offset(-8, -1, 16));
+        // Past the pier head in open water - spawning beside the
+        // planks just dropped the boat under the pier deck.
+        spawnBoat(level, origin.offset(-8, -1, 23));
         // Sol sits on his stool by the tent door and never leaves it.
         spawnOldMan(level, origin.offset(-2, 1, 4));
     }
@@ -305,7 +307,7 @@ public class IslandBuilder {
      * fire ring and an open supply shed (fence posts + plank roof) offside.
      */
     private static void buildTent(ServerLevel level, BlockPos base) {
-        BlockState canvas = Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState();
+        BlockState canvas = Blocks.WHITE_WOOL.defaultBlockState();
         BlockState trim = Blocks.COBBLED_DEEPSLATE.defaultBlockState();
         BlockState plank = Blocks.OAK_PLANKS.defaultBlockState();
         BlockState post = Blocks.OAK_FENCE.defaultBlockState();

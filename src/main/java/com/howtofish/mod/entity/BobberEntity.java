@@ -83,6 +83,7 @@ public class BobberEntity extends Projectile {
     private int hookedTicks = 0;
     /** Extra reeling speed applied while > 0 (re-filling by pressing use again). */
     private int reelBoost = 0;
+    private int lastReelStroke = -100;
     private int struggleTimer = 0;
 
     public BobberEntity(EntityType<? extends BobberEntity> type, Level level) {
@@ -313,15 +314,28 @@ public class BobberEntity extends Projectile {
             return 1;
         }
         if (state == STATE_HOOKED) {
-            this.reelBoost = 26;
-            this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
-                    SoundEvents.FISHING_BOBBER_RETRIEVE, SoundSource.PLAYERS, 0.9f, 1.2f);
+            // During the fight RMB is deliberately inert: the reel stroke is
+            // LMB (see applyReelStroke). This way a mistimed right-click can
+            // NEVER yank the line back and "reset" the fight.
             return 0;
         }
         this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
                 SoundEvents.FISHING_BOBBER_RETRIEVE, SoundSource.PLAYERS, 0.8f, 1.0f);
         this.discardAndClean();
         return 0;
+    }
+
+    /**
+     * One LMB stroke of the reel (sent by ReelClickPacket while a fish is
+     * hooked). Short cooldown so frantic spam is capped to real pulling.
+     */
+    public void applyReelStroke() {
+        if (this.level.isClientSide || getState() != STATE_HOOKED) return;
+        if (this.tickCount - this.lastReelStroke < 4) return;
+        this.lastReelStroke = this.tickCount;
+        this.reelBoost = 26;
+        this.level.playSound(null, this.getX(), this.getY(), this.getZ(),
+                SoundEvents.FISHING_BOBBER_RETRIEVE, SoundSource.PLAYERS, 0.85f, 1.25f);
     }
 
     /** Hook: the fish that bit is now attached and will be pulled out of the water. */

@@ -75,8 +75,12 @@
     "message.howtofish.gave_beer": "§6Old Sol gulped the whole beer down and handed you the empty can - bait it on the rod!",
     "message.howtofish.can_used": "The can sank with a clang - the crab took it (one can per cast).",
     "message.howtofish.canForRod": "The empty can glints under water... wait for one deep plunge",
-    "message.howtofish.reel_now": "Hooked! Tap RMB while the fish dashes to reel it in!",
+    "message.howtofish.reel_now": "Hooked! Hold the rod and mash LMB (attack) while the fish dashes - RMB can no longer reset the fight.",
     "message.howtofish.fish_escaped": "The line snapped - the fish got away…",
-    "hud.howtofish.click_now": "CLICK NOW!",
-    "hud.howtofish.hold": "catching breath…"
+    "hud.howtofish.click_now": "CLICK! (LMB)",
+    "hud.howtofish.hold": "catching breath… wait for a dash",
+    "message.howtofish.fed_offer": "Old Sol nods approvingly and swallows the %s. Refund: %s ₽",
+    "boss.howtofish.retreat": "The Spider Crab is slipping away",
+    "boss.howtofish.retreat_timer": "%ss left",
+    "message.howtofish.boss_retreated": "Time's up - the Spider Crab sank into the deep. Bait up and try again."
 }

@@ -55,6 +55,33 @@ public class ClientEvents {
                     ModNetwork.CHANNEL.sendToServer(new OpenRodMenuPacket());
                 }
             }
+            // LMB is the REEL STROKE during a hooked fight (RMB stays
+            // cast/hook only). Edge-detected straight from the window so we
+            // never consume the vanilla attack input.
+            if (mc.player != null && mc.level != null && mc.screen == null) {
+                boolean left = org.lwjgl.glfw.GLFW.glfwGetMouseButton(
+                        mc.getWindow().getWindow(), org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT)
+                        == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+                if (left && !prevLeftDown && fightActive(mc)) {
+                    ModNetwork.CHANNEL.sendToServer(new com.howtofish.mod.network.ReelClickPacket());
+                }
+                prevLeftDown = left;
+            } else {
+                prevLeftDown = false;
+            }
+        }
+
+        private static boolean prevLeftDown;
+
+        private static boolean fightActive(Minecraft mc) {
+            for (var e : mc.level.entitiesForRendering()) {
+                if (e instanceof com.howtofish.mod.entity.BobberEntity bobber
+                        && bobber.getSyncedOwner() == mc.player
+                        && bobber.getState() == com.howtofish.mod.entity.BobberEntity.STATE_HOOKED) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         @SubscribeEvent

@@ -247,6 +247,24 @@ public class OldManEntity extends PathfinderMob {
             return InteractionResult.SUCCESS;
         }
 
+        // He will eat ANY good the shop sells (rod, radar, knife, bait) for a
+        // full-price refund - a fair trade-back, and "anything can be offered"
+        // reads as very in-character for a lonely keeper.
+        var offer = OldManShopMenu.OFFERS.stream()
+                .filter(o -> o.display().getItem() == item)
+                .findFirst();
+        if (offer.isPresent() && !(item instanceof BeerItem)) {
+            int refund = offer.get().price();
+            PlayerCurrency.add(player, refund);
+            held.shrink(1);
+            startEating(30);
+            this.level.playSound(null, this.blockPosition(), ModSounds.COIN.get(),
+                    SoundSource.PLAYERS, 1.0f, 1.15f);
+            player.displayClientMessage(Component.translatable("message.howtofish.fed_offer",
+                    offer.get().display().getHoverName(), refund), true);
+            return InteractionResult.SUCCESS;
+        }
+
         if (item instanceof BeerItem) {
             // He gulps the whole bottle down, belches, and returns the empty can:
             // the ONE thing the Spider Crab answers to as a rod bait.
