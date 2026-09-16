@@ -79,7 +79,10 @@ public final class AtriaCommands {
                             return 1;
                         })
                         .then(Commands.literal("status")
-                                .executes(ctx -> ctx.getSource().sendSuccess(keyStatus(), false)))
+                                .executes(ctx -> {
+                                    ctx.getSource().sendSuccess(keyStatus(), false);
+                                    return 1;
+                                }))
                         .then(Commands.literal("clear")
                                 .requires(source -> source.hasPermission(2))
                                 .executes(ctx -> {
