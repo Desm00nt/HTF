@@ -150,6 +150,9 @@ if (atriaDir.isDirectory()) {
     tasks.register('atriadawnJar', Jar) {
         archiveBaseName = atriaProps.getProperty('mod_id')
         archiveVersion = atriaProps.getProperty('mod_version')
+        // Bare Jar tasks default to build/ — send the output to build/libs
+        // so the CI artifact glob (build/libs/*.jar) picks it up.
+        destinationDirectory = layout.buildDirectory.dir('libs')
         from sourceSets.atriadawn.output
         manifest {
             attributes([
@@ -189,9 +192,11 @@ gradle.buildFinished {
     def rootLibs = new File(buildDir, 'libs')
     rootLibs.mkdirs()
     def sweep = []
-    atriaDiagDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+    projectDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
         if (f.name.startsWith('atriadawn') && f.name.endsWith('.jar') && f.length() > 0
-                && !f.parentFile.equals(rootLibs)) {
+                && !f.parentFile.equals(rootLibs)
+                && !f.absolutePath.contains('/.git/')
+                && f.parentFile.name != '.gradle') {
             sweep << f
         }
     }
