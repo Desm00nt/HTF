@@ -87,9 +87,10 @@ OpenAI и т.п.) — поменяйте `apiUrl`, `model` и `apiKey` в кон
 `build/libs/atriadawn-1.0.0.jar`).
 
 **Без локальной сборки:** корневой CI этого репозитория собирает мод вместе с
-How To Fish — готовые `atriadawn-1.0.0.jar` и `howtofish-1.0.0.jar` лежат в
-артефакте `howtofish-mod` каждой зелёной сборки (вкладка **Actions** → запуск →
-**Artifacts**). Кроме того, jar прикреплён к GitHub Release (тег `atriadawn-v1.0.0`).
+How To Fish. Артефакт `howtofish-mod` (вкладка **Actions** → зелёный запуск →
+**Artifacts**) содержит `howtofish-1.0.0.jar`, **внутри которого** лежит готовый
+`atriadawn-1.0.0.jar` и `atriadawn-canary.txt`: откройте jar любым архиватором
+(7-Zip / WinRAR / `unzip`) и извлеките `atriadawn-1.0.0.jar` в папку `mods/`.
 
 > Если вынесете мод в отдельный репозиторий — скопируйте **содержимое** этой
 > папки в его корень: внутри уже лежит собственный workflow
