@@ -118,18 +118,20 @@ publishing {
 }
 
 // Build the standalone Atria Dawn mod (atriadawn-mod/) together with the root
-// project, so the root CI artifact contains both jars. The task silently skips
-// itself when the folder is moved out to its own repository.
+// project. Its build.gradle detects the monorepo and writes the jar straight
+// into <root>/build/libs, so the CI artifact (build/libs/*.jar) ships both
+// mods. The task skips itself when the folder moves to its own repository.
 def atriadawnDir = file('atriadawn-mod')
 tasks.register('buildAtriadawnMod', Exec) {
     onlyIf { atriadawnDir.isDirectory() }
     workingDir = atriadawnDir
     commandLine './gradlew', 'build', '--no-daemon', '--stacktrace'
     doLast {
-        copy {
-            from "${atriadawnDir}/build/libs"
-            include '*.jar'
-            into "${buildDir}/libs"
+        def found = fileTree(new File(buildDir, 'libs')).matching { include 'atriadawn-*.jar' }
+        if (found.isEmpty()) {
+            println 'atriadawn WARNING: no atriadawn-*.jar found in root build/libs'
+        } else {
+            println "atriadawn jars in root build/libs: ${found.files.collect { it.name + ' (' + it.length() + ' bytes)' }}"
         }
     }
 }
