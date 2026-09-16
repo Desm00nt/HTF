@@ -179,6 +179,31 @@ if (atriaDir.isDirectory()) {
     reobf {
         create('atriadawnJar')
     }
+
+    // ---- Delivery + diagnostics channel ----
+    // The root CI artifact reliably carries build/libs/*.jar; to make sure the
+    // atriadawn jar is always obtainable, embed the (reobfed) atriadawn jar
+    // and a small diagnostics report into the howtofish jar itself. Extra
+    // entries are ignored by Forge; unzip the howtofish jar to extract them.
+    def atriaCanary = tasks.register('atriadawnCanaryTxt') {
+        def out = layout.buildDirectory.file('atriadawn-canary.txt')
+        outputs.file(out)
+        doLast {
+            def f = out.get().asFile
+            f.parentFile.mkdirs()
+            def libsDir = new File(buildDir, 'libs')
+            f.text = "atriadawn embed diagnostics\n" +
+                    "sourceSets: ${sourceSets.names}\n" +
+                    "atriadawn tasks: ${project.tasks.names.findAll { it.toLowerCase().contains('atriadawn') }.sort()}\n" +
+                    "build/libs: ${libsDir.isDirectory() ? libsDir.listFiles().collect { it.name + ' ' + it.length() }.sort() : 'missing'}\n"
+        }
+    }
+    tasks.named('jar', Jar).configure {
+        dependsOn 'reobfAtriadawnJar'   // embed the POST-reobf atriadawn jar
+        dependsOn atriaCanary
+        from(tasks.named('atriadawnJar', Jar).map { it.archiveFile })
+        from(atriaCanary.map { it.outputs.files.first() })
+    }
 }
 
 // ---- CI diagnostics: after every build, sweep the repo for any produced
