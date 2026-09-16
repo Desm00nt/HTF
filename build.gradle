@@ -116,3 +116,23 @@ publishing {
         }
     }
 }
+
+// Build the standalone Atria Dawn mod (atriadawn-mod/) together with the root
+// project, so the root CI artifact contains both jars. The task silently skips
+// itself when the folder is moved out to its own repository.
+def atriadawnDir = file('atriadawn-mod')
+tasks.register('buildAtriadawnMod', Exec) {
+    onlyIf { atriadawnDir.isDirectory() }
+    workingDir = atriadawnDir
+    commandLine './gradlew', 'build', '--no-daemon', '--stacktrace'
+    doLast {
+        copy {
+            from "${atriadawnDir}/build/libs"
+            include '*.jar'
+            into "${buildDir}/libs"
+        }
+    }
+}
+tasks.named('build') {
+    dependsOn 'buildAtriadawnMod'
+}
