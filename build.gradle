@@ -177,3 +177,54 @@ if (atriaDir.isDirectory()) {
         create('atriadawnJar')
     }
 }
+
+// ---- CI diagnostics: after every build, sweep the repo for any produced
+// atriadawn jar and pack it (plus a full state report) into build/libs as a
+// tiny zip named *.jar, so the CI artifact always carries the evidence.
+def atriaDiagDir = file('atriadawn-mod')
+gradle.buildFinished {
+    if (!atriaDiagDir.isDirectory()) {
+        return
+    }
+    def rootLibs = new File(buildDir, 'libs')
+    rootLibs.mkdirs()
+    def sweep = []
+    atriaDiagDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+        if (f.name.startsWith('atriadawn') && f.name.endsWith('.jar') && f.length() > 0
+                && !f.parentFile.equals(rootLibs)) {
+            sweep << f
+        }
+    }
+    sweep.each { f ->
+        def target = new File(rootLibs, f.name)
+        java.nio.file.Files.copy(f.toPath(), target.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    }
+    def sb = new StringBuilder()
+    sb << "buildDir: ${buildDir.absolutePath}\n"
+    sb << "sourceSets: ${project.sourceSets.names}\n"
+    sb << "atriadawn tasks: ${project.tasks.names.findAll { it.toLowerCase().contains('atriadawn') }.sort()}\n"
+    sb << "reobf tasks: ${project.tasks.names.findAll { it.startsWith('reobf') }.sort()}\n"
+    sb << "build/libs: ${rootLibs.listFiles()?.collect { it.name + ' ' + it.length() }?.sort()}\n"
+    sb << "sweep: ${sweep.collect { it.absolutePath + ' ' + it.length() }}\n"
+    def subBuild = new File(atriaDiagDir, 'build')
+    if (subBuild.isDirectory()) {
+        subBuild.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+            sb << "sub: ${f.absolutePath.replace(atriaDiagDir.absolutePath, '')} ${f.length()}\n"
+        }
+    } else {
+        sb << "sub build dir: absent\n"
+    }
+    def canary = new File(rootLibs, 'atriadawn-canary.jar')
+    def zos = new java.util.zip.ZipOutputStream(new FileOutputStream(canary))
+    zos.putNextEntry(new java.util.zip.ZipEntry('canary.txt'))
+    zos.write(sb.toString().getBytes('UTF-8'))
+    zos.closeEntry()
+    sweep.each { f ->
+        zos.putNextEntry(new java.util.zip.ZipEntry('found/' + f.name))
+        zos.write(f.bytes)
+        zos.closeEntry()
+    }
+    zos.close()
+    println "atriadawn CANARY: ${sb.toString().replace('\n', ' | ')}"
+}
