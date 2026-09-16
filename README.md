@@ -17,6 +17,7 @@ coordinates of the next island (read them with the Radar while in the boat).
 > `atriadawn-mod/`) — ИИ-модель Atria Dawn отвечает на ваши сообщения прямо
 > в игровом чате, на русском языке. Он никак не зависит от How To Fish:
 > можно поставить только его. Подробности — в [его README](atriadawn-mod/README.md).
+> Сборка этой папки в общий CI не включена — см. README мода.
 
 ## Feature checklist vs. your request
 
