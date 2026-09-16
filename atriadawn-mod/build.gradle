@@ -101,15 +101,3 @@ tasks.named('jar', Jar).configure {
     finalizedBy 'reobfJar'
 }
 
-// Inside the HTF monorepo (this folder sits next to the root build.gradle)
-// the jar is written straight into <repo>/build/libs, so the root CI artifact
-// (build/libs/*.jar) ships both mods without any copying steps.
-// Standalone builds (this folder as its own repository root) are unaffected.
-def monorepoRoot = projectDir.parentFile
-if (monorepoRoot != null && new File(monorepoRoot, 'build.gradle').isFile()) {
-    def repoBuildLibs = new File(monorepoRoot, 'build/libs')
-    tasks.named('jar', Jar).configure {
-        destinationDirectory = repoBuildLibs
-    }
-    println "atriadawn: monorepo detected - jar will go to ${repoBuildLibs}"
-}

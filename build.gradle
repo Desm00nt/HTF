@@ -117,55 +117,63 @@ publishing {
     }
 }
 
-// Build the standalone Atria Dawn mod (atriadawn-mod/) together with the root
-// project. Its build.gradle detects the monorepo and writes the jar straight
-// into <root>/build/libs, so the CI artifact (build/libs/*.jar) ships both
-// mods. The task skips itself when the folder moves to its own repository.
-def atriadawnDir = file('atriadawn-mod')
-tasks.register('buildAtriadawnMod', Exec) {
-    onlyIf { atriadawnDir.isDirectory() }
-    // bash -c 'cd ...' removes any dependency on ProcessBuilder cwd handling.
-    commandLine 'bash', '-c',
-            "cd '${atriadawnDir.absolutePath}' && ./gradlew build --no-daemon --stacktrace"
-    doFirst {
-        buildDir.mkdirs()
-        standardOutput = new FileOutputStream(new File(buildDir, 'atriadawn-build.log'))
-        errorOutput = standardOutput
-    }
-    doLast {
-        def rootLibs = new File(buildDir, 'libs')
-        def subLibs = new File(atriadawnDir, 'build/libs')
-        // Fallback copy in case the subproject jar did not land in build/libs.
-        if (subLibs.isDirectory()) {
-            copy {
-                from subLibs
-                include 'atriadawn-*.jar'
-                into rootLibs
-            }
-        }
-        // Diagnostics bundle: full sub-build log + listings, packed as a zip
-        // with a .jar name so the CI artifact glob (build/libs/*.jar) picks it.
-        def listing = new File(buildDir, 'atriadawn-listing.txt')
-        listing.text = "root build/libs: ${rootLibs.isDirectory() ? rootLibs.listFiles().collect { it.name + ' ' + it.length() } : 'missing'}\n" +
-                "sub  build/libs: ${subLibs.isDirectory() ? subLibs.listFiles().collect { it.name + ' ' + it.length() } : 'missing'}\n" +
-                "sub build dir: ${new File(atriadawnDir, 'build').isDirectory()}"
-        def diag = new File(rootLibs, 'atriadawn-diag.jar')
-        ant.zip(destfile: diag, whenempty: 'create') {
-            def logFile = new File(buildDir, 'atriadawn-build.log')
-            if (logFile.isFile()) {
-                zipfileset(file: logFile, fullpath: 'atriadawn-build.log')
-            }
-            zipfileset(file: listing, fullpath: 'listing.txt')
-        }
-        println "atriadawn DIAG: ${listing.text.replace('\n', ' | ')}"
-        def log = new File(buildDir, 'atriadawn-build.log')
-        if (log.isFile()) {
-            def lines = log.readLines()
-            println "atriadawn LOG TAIL (${lines.size()} lines):"
-            lines.takeRight(30).each { println "atriadawn> ${it}" }
+// ---- Atria Dawn Chat: build the standalone mod's jar inside this build ----
+// The sources live in atriadawn-mod/ as an independent mod (own mod id
+// "atriadawn"), but they are compiled and packaged here too, so the root CI
+// artifact (build/libs/*.jar) ships both jars. This block skips itself when
+// the folder is moved to its own repository.
+def atriaDir = file('atriadawn-mod')
+if (atriaDir.isDirectory()) {
+    def atriaProps = new Properties()
+    new File(atriaDir, 'gradle.properties').withInputStream { atriaProps.load(it) }
+
+    sourceSets {
+        atriadawn {
+            java.srcDir new File(atriaDir, 'src/main/java')
+            resources.srcDir new File(atriaDir, 'src/main/resources')
         }
     }
-}
-tasks.named('build') {
-    dependsOn 'buildAtriadawnMod'
+    // The atriadawn code uses the same Minecraft/Forge APIs as the main mod.
+    sourceSets.atriadawn.compileClasspath += sourceSets.main.compileClasspath
+
+    def atriaReplace = [
+            minecraft_version: minecraft_version,
+            forge_version    : forge_version,
+            mod_id           : atriaProps.getProperty('mod_id'),
+            mod_name         : atriaProps.getProperty('mod_name'),
+            mod_license      : atriaProps.getProperty('mod_license'),
+            mod_version      : atriaProps.getProperty('mod_version'),
+            mod_authors      : atriaProps.getProperty('mod_authors'),
+            mod_description  : atriaProps.getProperty('mod_description')
+    ]
+
+    tasks.register('atriadawnJar', Jar) {
+        archiveBaseName = atriaProps.getProperty('mod_id')
+        archiveVersion = atriaProps.getProperty('mod_version')
+        from sourceSets.atriadawn.output
+        manifest {
+            attributes([
+                    'Specification-Title'   : atriaProps.getProperty('mod_id'),
+                    'Specification-Vendor'  : atriaProps.getProperty('mod_authors'),
+                    'Specification-Version' : '1',
+                    'Implementation-Title'  : atriaProps.getProperty('mod_name'),
+                    'Implementation-Version': atriaProps.getProperty('mod_version'),
+                    'Implementation-Vendor' : atriaProps.getProperty('mod_authors')
+            ])
+        }
+    }
+
+    // Expand ${mod_id} etc. in the atriadawn mods.toml.
+    tasks.named('processAtriadawnResources', Copy).configure {
+        inputs.properties atriaReplace
+        filesMatching('META-INF/mods.toml') {
+            expand atriaReplace
+        }
+    }
+
+    // ForgeGradle 5: register a reobfAtriadawnJar task (SRG remap for release),
+    // same as reobfJar for the main jar; assemble depends on it automatically.
+    reobf {
+        create('atriadawnJar')
+    }
 }
