@@ -12,7 +12,58 @@ reference game) → spend your Rubles in his shop → feed him a beer to get a
 bait can, summon the Spider Crab boss with it, and turn in its shell for the
 coordinates of the next island (read them with the Radar while in the boat).
 
-## Feature checklist vs. your request
+**Bonus:** the mod also ships an in-game **AI chat companion — [Atria Dawn](https://github.com/atria-asi/Atria-Dawn-Preview)**.
+Write `@<вопрос>` in chat or `/atria <вопрос>` and a real neural network
+answers you in Russian, right in the chat. See [«Чат с Atria Dawn»](#-чат-с-atria-dawn-ии-собеседница).
+
+## 💬 Чат с Atria Dawn (ИИ-собеседница)
+
+Встроенный ИИ-чат: **нейросетевая модель Atria Dawn** ([Atria Dawn Preview](https://github.com/atria-asi/Atria-Dawn-Preview),
+Shanghai AI Laboratory) отвечает на ваши сообщения прямо в игровом чате — **на русском языке**.
+Работает в любом мире (не только «Fishing»), в одиночной игре и на сервере.
+
+### Как пользоваться
+- **Префикс в чате:** напишите сообщение, начиная с `@` — например:
+  `@привет! кто ты?` или `@как скрафтить печь?` — Atria Dawn ответит в чате.
+- **Команда:** `/atria <сообщение>` — то же самое.
+- `/atria reset` — забыть контекст диалога; `/atria about` — справка;
+  `/atria reload` — перечитать конфиг (операторы).
+- Бот **помнит контекст**: последние 20 реплик вашего диалога (настраивается),
+  поэтому можно уточнять: «а почему?», «а на сервере?». У каждого игрока — своя память диалога.
+- Кулдаун 3 секунды между вопросами (защита от спама), ответ приходит асинхронно,
+  сервер не подвисает во время запроса.
+
+### Настройка (один раз)
+1. Запустите игру с модом — создастся файл **`config/atriadawn.json`**.
+2. Получите API-ключ в консоли Atria (ключи вида `atr_...`) и впишите его:
+   ```json
+   {
+     "apiUrl": "https://api.atria-asi.ai/v1/chat/completions",
+     "apiKey": "atr_ВАШ_КЛЮЧ",
+     "apiKeyEnvVar": "ATRIA_API_KEY",
+     "model": "Atria-Dawn-Preview",
+     ...
+   }
+   ```
+   Вместо `apiKey` можно задать переменную окружения `ATRIA_API_KEY`.
+   Подойдёт **любой OpenAI-совместимый API** (OpenRouter, ollama, llama.cpp server,
+   OpenAI и т.д.) — просто поменяйте `apiUrl`, `model` и `apiKey`.
+3. В игре выполните `/atria reload` (нужны права оператора) — готово.
+
+Другие настройки: `chatPrefix` (префикс-триггер, пустая строка = отключить),
+`systemPrompt` (характер бота; `%player%` заменяется на ник), `temperature`,
+`maxTokens`, `cooldownSeconds`, `maxHistoryMessages`, `maxResponseChars`,
+`showTypingIndicator`, `broadcastReplies` (true — отвечать всем игрокам сервера).
+
+### Как это устроено
+- Сообщения с префиксом перехватываются серверным событием `ServerChatEvent`
+  (обычный чат при этом не рассылается — бот сам показывает «Nick → Atria Dawn: вопрос»).
+- Запрос к API — асинхронный (`java.net.http.HttpClient.sendAsync`), ответ
+  возвращается на серверный поток через `server.execute(...)`; JSON собирается и
+  разбирается штатным Gson из Minecraft — **дополнительных библиотек не нужно**.
+- Ответы локализованы: `ru_ru.json` / `en_us.json` (ключи `atria.howtofish.*`).
+- ⚠️ Вопросы отправляются на внешний API — не пишите боту пароли и личные данные.
+  API-ключ хранится в `config/atriadawn.json` в открытом виде.
 
 | Request | Implementation |
 | --- | --- |
@@ -28,6 +79,7 @@ coordinates of the next island (read them with the Radar while in the boat).
 | Money shown top-left near health | `CurrencyHudOverlay` (client HUD overlay). |
 | Cool lighthouse | Tall brick tower + glass lamp room + `LighthouseLampBlock`/`LighthouseLampBlockEntity` rendering a tall glowing beam (reuses the vanilla Beacon beam shader) visible from far out at sea. |
 | Pixel textures + "3D" look | All item/entity/block textures are hand-authored pixel art (see `src/main/resources/assets/howtofish/textures`). The rod/knife/radar use true 3D item models (cuboid elements), not flat sprites. |
+| Chat with the **Atria Dawn** AI in Russian | `atria/` package: `AtriaEvents` intercepts `@`-prefixed chat / registers `/atria`, `AtriaChatManager` orchestrates the async request, `AtriaApiClient` talks to the OpenAI-compatible `api.atria-asi.ai` endpoint, `AtriaConfig` manages `config/atriadawn.json`. See [above](#-чат-с-atria-dawn-ии-собеседница). |
 | Build a jar / GitHub Actions | `.github/workflows/build.yml` — push this folder to GitHub and Actions will build `build/libs/howtofish-1.0.0.jar` automatically (see below). |
 
 ## Folder layout
@@ -44,6 +96,7 @@ minecraft-mod/
 └── src/main/
     ├── java/com/howtofish/mod/            # all mod source code
     │   ├── item/, entity/, block/         # rod, knife, radar, beer, fish, boss, old man...
+    │   ├── atria/                         # AI chat: Atria Dawn in the game chat (RU)
     │   ├── client/                        # models, renderers, HUD, shop screen
     │   ├── world/                         # island builder + world-type detection
     │   ├── economy/, menu/, network/, registry/, event/
