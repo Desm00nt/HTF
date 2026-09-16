@@ -14,12 +14,37 @@ import net.minecraft.server.level.ServerPlayer;
  *   /atria &lt;сообщение&gt; — задать вопрос (можно и просто «@вопрос» в чате)
  *   /atria reset        — очистить контекст своего диалога
  *   /atria about        — справка
+ *   /atria key &lt;ключ&gt;   — вписать API-ключ прямо в игре и сохранить его
+ *                         в config/atriadawn.json (операторы)
+ *   /atria key status   — проверить, задан ли ключ (показывается маскированным)
+ *   /atria key clear    — удалить ключ из конфига (операторы)
  *   /atria reload       — перечитать config/atriadawn.json (операторы)
  * </pre>
  */
 public final class AtriaCommands {
 
+    /** Минимальная «разумная» длина API-ключа (защита от опечаток). */
+    public static final int MIN_KEY_LENGTH = 10;
+
     private AtriaCommands() {
+    }
+
+    /** Похож ли текст на API-ключ: без пробелов и достаточно длинный. */
+    private static boolean isValidKey(String key) {
+        return key.length() >= MIN_KEY_LENGTH && !key.matches(".*\\s.*");
+    }
+
+    /** Строка статуса ключа: из конфига (маскирован), из env или не задан. */
+    private static Component keyStatus() {
+        AtriaConfig cfg = AtriaConfig.get();
+        if (cfg.apiKey != null && !cfg.apiKey.isBlank()) {
+            return Component.translatable("atria.howtofish.cmd_key_status_cfg", cfg.maskedKey());
+        }
+        String envVar = cfg.apiKeyEnvVar == null ? "" : cfg.apiKeyEnvVar.strip();
+        if (!envVar.isEmpty() && !cfg.resolveApiKey().isEmpty()) {
+            return Component.translatable("atria.howtofish.cmd_key_status_env", envVar);
+        }
+        return Component.translatable("atria.howtofish.cmd_key_status_none").withStyle(ChatFormatting.YELLOW);
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -46,6 +71,42 @@ public final class AtriaCommands {
                                     : "atria.howtofish.cmd_reload_nokey"), true);
                             return 1;
                         }))
+                .then(Commands.literal("key")
+                        // /atria key (без аргументов) — краткая справка
+                        .executes(ctx -> {
+                            ctx.getSource().sendSuccess(
+                                    Component.translatable("atria.howtofish.cmd_key_hint"), false);
+                            return 1;
+                        })
+                        .then(Commands.literal("status")
+                                .executes(ctx -> ctx.getSource().sendSuccess(keyStatus(), false)))
+                        .then(Commands.literal("clear")
+                                .requires(source -> source.hasPermission(2))
+                                .executes(ctx -> {
+                                    AtriaConfig.get().clearApiKey();
+                                    ctx.getSource().sendSuccess(
+                                            Component.translatable("atria.howtofish.cmd_key_cleared"), true);
+                                    return 1;
+                                }))
+                        .then(Commands.argument("apikey", StringArgumentType.greedyString())
+                                .requires(source -> source.hasPermission(2))
+                                .executes(ctx -> {
+                                    String raw = StringArgumentType.getString(ctx, "apikey").strip();
+                                    // убираем случайные кавычки вокруг скопированного ключа
+                                    if (raw.length() >= 2 && raw.startsWith("\"") && raw.endsWith("\"")) {
+                                        raw = raw.substring(1, raw.length() - 1).strip();
+                                    }
+                                    if (!isValidKey(raw)) {
+                                        ctx.getSource().sendFailure(Component.translatable(
+                                                "atria.howtofish.cmd_key_invalid", MIN_KEY_LENGTH));
+                                        return 0;
+                                    }
+                                    AtriaConfig cfg = AtriaConfig.get();
+                                    cfg.setApiKey(raw);
+                                    ctx.getSource().sendSuccess(Component.translatable(
+                                            "atria.howtofish.cmd_key_set", cfg.maskedKey()), true);
+                                    return 1;
+                                })))
                 // аргумент регистрируется последним: точные литералы выше имеют приоритет
                 .then(Commands.argument("message", StringArgumentType.greedyString())
                         .executes(ctx -> {

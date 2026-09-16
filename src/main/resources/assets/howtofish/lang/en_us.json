@@ -74,7 +74,7 @@
     "atria.howtofish.typing": "Atria Dawn is typing...",
     "atria.howtofish.hint_usage": "Write your question right after the prefix: %s How do I craft a furnace?",
     "atria.howtofish.too_long": "The message is too long (max %s characters).",
-    "atria.howtofish.err_no_key": "Atria Dawn is not configured: no API key. Put your key into config/atriadawn.json (field \"apiKey\") and run /atria reload.",
+    "atria.howtofish.err_no_key": "Atria Dawn is not configured: no API key. Get a key in the Atria console (atr_...) and run: /atria key atr_YOUR_KEY",
     "atria.howtofish.err_auth": "Atria Dawn rejected the API key (HTTP %s). Check the apiKey field in config/atriadawn.json.",
     "atria.howtofish.err_limited": "Atria Dawn is rate limited or busy (%s). Try again in a minute.",
     "atria.howtofish.err_api": "Atria Dawn API error (HTTP %s): %s",
@@ -86,9 +86,16 @@
     "atria.howtofish.cmd_reset": "Conversation with Atria Dawn cleared.",
     "atria.howtofish.cmd_empty": "Type a question, for example: /atria How do I craft a furnace?",
     "atria.howtofish.cmd_reload": "Atria Dawn config reloaded. API key: present.",
-    "atria.howtofish.cmd_reload_nokey": "Atria Dawn config reloaded. API key: NOT set - edit config/atriadawn.json.",
+    "atria.howtofish.cmd_reload_nokey": "Atria Dawn config reloaded. API key: NOT set - run /atria key <key> (ops) or edit config/atriadawn.json.",
     "atria.howtofish.about_1": "%s - an AI companion living right in your chat.",
     "atria.howtofish.about_2": "How to ask: start a chat message with %s, or use /atria <message>.",
-    "atria.howtofish.about_3": "/atria reset - forget the conversation, /atria reload - re-read config/atriadawn.json (ops).",
-    "atria.howtofish.about_4": "Atria Dawn remembers the last %s messages of your dialogue."
+    "atria.howtofish.about_3": "/atria reset - forget the dialog, /atria key <key> - set the API key (ops), /atria reload - re-read config/atriadawn.json (ops).",
+    "atria.howtofish.about_4": "Atria Dawn remembers the last %s messages of your dialogue.",
+    "atria.howtofish.cmd_key_hint": "Usage: /atria key <key> - save the API key (ops), /atria key status - check it, /atria key clear - remove it.",
+    "atria.howtofish.cmd_key_set": "API key %s saved to config/atriadawn.json - no reload needed. Try it: @hello, who are you?",
+    "atria.howtofish.cmd_key_invalid": "This does not look like an API key (at least %s characters, no spaces). Example: /atria key atr_XXXXXXXXXXXX",
+    "atria.howtofish.cmd_key_cleared": "API key removed from config/atriadawn.json.",
+    "atria.howtofish.cmd_key_status_cfg": "API key: set (%s) - stored in config/atriadawn.json.",
+    "atria.howtofish.cmd_key_status_env": "API key: taken from the environment variable %s.",
+    "atria.howtofish.cmd_key_status_none": "API key: NOT set. Get a key in the Atria console, then run: /atria key <key>"
 }

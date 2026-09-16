@@ -209,6 +209,33 @@ public final class AtriaConfig {
         return "";
     }
 
+    /**
+     * Сохранить новый API-ключ (команда {@code /atria key}) и сразу записать
+     * конфиг на диск. Так как метод меняет живой singleton, перезагрузка
+     * конфига не требуется — следующий же запрос уйдёт с новым ключом.
+     */
+    public void setApiKey(String key) {
+        this.apiKey = key == null ? "" : key.strip();
+        save();
+    }
+
+    /** Удалить ключ из конфига ({@code /atria key clear}). */
+    public void clearApiKey() {
+        setApiKey("");
+    }
+
+    /** Замаскированный ключ для показа в чате: {@code atr_3f...9c2d}. */
+    public String maskedKey() {
+        String key = apiKey == null ? "" : apiKey.strip();
+        if (key.isEmpty()) {
+            return "";
+        }
+        if (key.length() <= 10) {
+            return key.substring(0, 2) + "...";
+        }
+        return key.substring(0, 6) + "..." + key.substring(key.length() - 4);
+    }
+
     // ---- безопасные читатели полей JSON ----
 
     private static String readString(JsonObject obj, String key, String fallback) {
