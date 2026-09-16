@@ -125,13 +125,34 @@ def atriadawnDir = file('atriadawn-mod')
 tasks.register('buildAtriadawnMod', Exec) {
     onlyIf { atriadawnDir.isDirectory() }
     workingDir = atriadawnDir
-    commandLine './gradlew', 'build', '--no-daemon', '--stacktrace'
+    // Absolute wrapper path + explicit -p: never depend on cwd resolution.
+    commandLine new File(atriadawnDir, 'gradlew').absolutePath,
+            '-p', atriadawnDir.absolutePath,
+            'build', '--no-daemon', '--stacktrace'
+    doFirst {
+        buildDir.mkdirs()
+        standardOutput = new FileOutputStream(new File(buildDir, 'atriadawn-build.log'))
+        errorOutput = standardOutput
+    }
     doLast {
-        def found = fileTree(new File(buildDir, 'libs')).matching { include 'atriadawn-*.jar' }
-        if (found.isEmpty()) {
-            println 'atriadawn WARNING: no atriadawn-*.jar found in root build/libs'
-        } else {
-            println "atriadawn jars in root build/libs: ${found.files.collect { it.name + ' (' + it.length() + ' bytes)' }}"
+        // Fallback copy in case the subproject jar did not land in build/libs.
+        def subLibs = new File(atriadawnDir, 'build/libs')
+        if (subLibs.isDirectory()) {
+            copy {
+                from subLibs
+                include 'atriadawn-*.jar'
+                into new File(buildDir, 'libs')
+            }
+        }
+        def rootLibs = new File(buildDir, 'libs')
+        println "atriadawn: subproject build/libs = ${subLibs.isDirectory() ? subLibs.listFiles().collect { it.name + '(' + it.length() + ')' } : 'missing'}"
+        def found = fileTree(rootLibs).matching { include 'atriadawn-*.jar' }
+        println "atriadawn: root build/libs atriadawn jars = ${found.isEmpty() ? 'NONE' : found.files.collect { it.name + '(' + it.length() + ')' }}"
+        def log = new File(buildDir, 'atriadawn-build.log')
+        if (log.isFile()) {
+            def lines = log.readLines()
+            println "atriadawn build log tail (${lines.size()} lines):"
+            lines.takeRight(25).each { println "atriadawn> ${it}" }
         }
     }
 }
