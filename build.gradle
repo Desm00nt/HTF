@@ -116,15 +116,3 @@ publishing {
         }
     }
 }
-
-// TEMP (verification only): also build the standalone atriadawn-mod folder
-// with the root CI run. Will be reverted right after a green build.
-def atriadawnDir = file('atriadawn-mod')
-tasks.register('buildAtriadawnMod', Exec) {
-    onlyIf { atriadawnDir.isDirectory() }
-    workingDir = atriadawnDir
-    commandLine './gradlew', 'build', '--no-daemon', '--stacktrace'
-}
-tasks.named('build') {
-    dependsOn 'buildAtriadawnMod'
-}
