@@ -124,35 +124,45 @@ publishing {
 def atriadawnDir = file('atriadawn-mod')
 tasks.register('buildAtriadawnMod', Exec) {
     onlyIf { atriadawnDir.isDirectory() }
-    workingDir = atriadawnDir
-    // Absolute wrapper path + explicit -p: never depend on cwd resolution.
-    commandLine new File(atriadawnDir, 'gradlew').absolutePath,
-            '-p', atriadawnDir.absolutePath,
-            'build', '--no-daemon', '--stacktrace'
+    // bash -c 'cd ...' removes any dependency on ProcessBuilder cwd handling.
+    commandLine 'bash', '-c',
+            "cd '${atriadawnDir.absolutePath}' && ./gradlew build --no-daemon --stacktrace"
     doFirst {
         buildDir.mkdirs()
         standardOutput = new FileOutputStream(new File(buildDir, 'atriadawn-build.log'))
         errorOutput = standardOutput
     }
     doLast {
-        // Fallback copy in case the subproject jar did not land in build/libs.
+        def rootLibs = new File(buildDir, 'libs')
         def subLibs = new File(atriadawnDir, 'build/libs')
+        // Fallback copy in case the subproject jar did not land in build/libs.
         if (subLibs.isDirectory()) {
             copy {
                 from subLibs
                 include 'atriadawn-*.jar'
-                into new File(buildDir, 'libs')
+                into rootLibs
             }
         }
-        def rootLibs = new File(buildDir, 'libs')
-        println "atriadawn: subproject build/libs = ${subLibs.isDirectory() ? subLibs.listFiles().collect { it.name + '(' + it.length() + ')' } : 'missing'}"
-        def found = fileTree(rootLibs).matching { include 'atriadawn-*.jar' }
-        println "atriadawn: root build/libs atriadawn jars = ${found.isEmpty() ? 'NONE' : found.files.collect { it.name + '(' + it.length() + ')' }}"
+        // Diagnostics bundle: full sub-build log + listings, packed as a zip
+        // with a .jar name so the CI artifact glob (build/libs/*.jar) picks it.
+        def listing = new File(buildDir, 'atriadawn-listing.txt')
+        listing.text = "root build/libs: ${rootLibs.isDirectory() ? rootLibs.listFiles().collect { it.name + ' ' + it.length() } : 'missing'}\n" +
+                "sub  build/libs: ${subLibs.isDirectory() ? subLibs.listFiles().collect { it.name + ' ' + it.length() } : 'missing'}\n" +
+                "sub build dir: ${new File(atriadawnDir, 'build').isDirectory()}"
+        def diag = new File(rootLibs, 'atriadawn-diag.jar')
+        ant.zip(destfile: diag, whenempty: 'create') {
+            def logFile = new File(buildDir, 'atriadawn-build.log')
+            if (logFile.isFile()) {
+                zipfileset(file: logFile, fullpath: 'atriadawn-build.log')
+            }
+            zipfileset(file: listing, fullpath: 'listing.txt')
+        }
+        println "atriadawn DIAG: ${listing.text.replace('\n', ' | ')}"
         def log = new File(buildDir, 'atriadawn-build.log')
         if (log.isFile()) {
             def lines = log.readLines()
-            println "atriadawn build log tail (${lines.size()} lines):"
-            lines.takeRight(25).each { println "atriadawn> ${it}" }
+            println "atriadawn LOG TAIL (${lines.size()} lines):"
+            lines.takeRight(30).each { println "atriadawn> ${it}" }
         }
     }
 }
