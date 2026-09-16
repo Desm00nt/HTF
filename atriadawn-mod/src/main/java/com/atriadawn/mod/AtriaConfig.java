@@ -1,10 +1,10 @@
-package com.howtofish.mod.atria;
+package com.atriadawn.mod;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.howtofish.mod.HowToFishMod;
+
 import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.io.IOException;
@@ -112,7 +112,7 @@ public final class AtriaConfig {
         try {
             if (!Files.exists(file)) {
                 cfg.save();
-                HowToFishMod.LOGGER.info("Atria Dawn: создан конфиг {} — впишите apiKey и выполните /atria reload", file);
+                AtriaDawnMod.LOGGER.info("Atria Dawn: создан конфиг {} — впишите apiKey и выполните /atria reload", file);
                 return cfg;
             }
             try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
@@ -121,13 +121,13 @@ public final class AtriaConfig {
                     cfg.readFrom(obj);
                     cfg.save(); // дописываем отсутствующие поля значениями по умолчанию
                 } else {
-                    HowToFishMod.LOGGER.warn("Atria Dawn: {} не является JSON-объектом, используются значения по умолчанию", file);
+                    AtriaDawnMod.LOGGER.warn("Atria Dawn: {} не является JSON-объектом, используются значения по умолчанию", file);
                     cfg.save();
                 }
             }
             return cfg;
         } catch (Exception ex) {
-            HowToFishMod.LOGGER.warn("Atria Dawn: не удалось прочитать {}, используются значения по умолчанию", file, ex);
+            AtriaDawnMod.LOGGER.warn("Atria Dawn: не удалось прочитать {}, используются значения по умолчанию", file, ex);
             return cfg;
         }
     }
@@ -183,7 +183,7 @@ public final class AtriaConfig {
                 gson.toJson(obj, writer);
             }
         } catch (IOException ex) {
-            HowToFishMod.LOGGER.warn("Atria Dawn: не удалось сохранить {}", file, ex);
+            AtriaDawnMod.LOGGER.warn("Atria Dawn: не удалось сохранить {}", file, ex);
         }
     }
 

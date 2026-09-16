@@ -1,6 +1,5 @@
 package com.howtofish.mod;
 
-import com.howtofish.mod.atria.AtriaEvents;
 import com.howtofish.mod.economy.CurrencyEvents;
 import com.howtofish.mod.event.FishingEvents;
 import com.howtofish.mod.event.ModEvents;
@@ -54,12 +53,10 @@ public class HowToFishMod {
         MinecraftForge.EVENT_BUS.register(new ModEvents());
         MinecraftForge.EVENT_BUS.register(new FishingEvents());
         MinecraftForge.EVENT_BUS.register(new CurrencyEvents());
-        MinecraftForge.EVENT_BUS.register(new AtriaEvents());
 
         ModWorldGen.register();
 
         LOGGER.info("How To Fish mod loaded - cast your line!");
-        LOGGER.info("Atria Dawn AI chat ready - write \"@<question>\" in chat or use /atria");
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

@@ -1,4 +1,4 @@
-package com.howtofish.mod.atria;
+package com.atriadawn.mod;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;

@@ -1,9 +1,9 @@
-package com.howtofish.mod.atria;
+package com.atriadawn.mod;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.howtofish.mod.HowToFishMod;
+
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -60,19 +60,19 @@ public final class AtriaApiClient {
         try {
             request = buildRequest(cfg, history, playerName, userText);
         } catch (Exception ex) {
-            HowToFishMod.LOGGER.warn("Atria Dawn: не удалось собрать запрос", ex);
+            AtriaDawnMod.LOGGER.warn("Atria Dawn: не удалось собрать запрос", ex);
             return CompletableFuture.completedFuture(
-                    ApiResult.failure("atria.howtofish.err_network", describe(ex)));
+                    ApiResult.failure("atria.err_network", describe(ex)));
         }
         return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenApply(AtriaApiClient::parseResponse)
                 .exceptionally(ex -> {
                     Throwable cause = unwrap(ex);
                     if (cause instanceof HttpTimeoutException) {
-                        return ApiResult.failure("atria.howtofish.err_timeout");
+                        return ApiResult.failure("atria.err_timeout");
                     }
-                    HowToFishMod.LOGGER.warn("Atria Dawn: ошибка сети при запросе", ex);
-                    return ApiResult.failure("atria.howtofish.err_network", describe(ex));
+                    AtriaDawnMod.LOGGER.warn("Atria Dawn: ошибка сети при запросе", ex);
+                    return ApiResult.failure("atria.err_network", describe(ex));
                 });
     }
 
@@ -101,7 +101,7 @@ public final class AtriaApiClient {
                 .timeout(Duration.ofSeconds(Math.max(10, cfg.requestTimeoutSeconds)))
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
-                .header("User-Agent", "HowToFish-Minecraft-Mod/1.0 (Atria Dawn chat)")
+                .header("User-Agent", "AtriaDawn-Minecraft-Mod/1.0 (Atria Dawn chat)")
                 .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8));
         String key = cfg.resolveApiKey();
         if (!key.isEmpty()) {
@@ -123,22 +123,22 @@ public final class AtriaApiClient {
         String body = response.body() == null ? "" : response.body();
 
         if (status == 401 || status == 403) {
-            HowToFishMod.LOGGER.warn("Atria Dawn: API отклонил ключ (HTTP {}): {}", status, snippet(body));
-            return ApiResult.failure("atria.howtofish.err_auth", status);
+            AtriaDawnMod.LOGGER.warn("Atria Dawn: API отклонил ключ (HTTP {}): {}", status, snippet(body));
+            return ApiResult.failure("atria.err_auth", status);
         }
         if (status == 429) {
-            return ApiResult.failure("atria.howtofish.err_limited", snippet(body));
+            return ApiResult.failure("atria.err_limited", snippet(body));
         }
         if (status < 200 || status >= 300) {
-            HowToFishMod.LOGGER.warn("Atria Dawn: неожиданный статус HTTP {}: {}", status, snippet(body));
-            return ApiResult.failure("atria.howtofish.err_api", status, snippet(body));
+            AtriaDawnMod.LOGGER.warn("Atria Dawn: неожиданный статус HTTP {}: {}", status, snippet(body));
+            return ApiResult.failure("atria.err_api", status, snippet(body));
         }
 
         try {
             JsonObject root = JsonParser.parseString(body).getAsJsonObject();
             JsonArray choices = root.getAsJsonArray("choices");
             if (choices == null || choices.size() == 0) {
-                return ApiResult.failure("atria.howtofish.err_bad_reply");
+                return ApiResult.failure("atria.err_bad_reply");
             }
             JsonObject choice = choices.get(0).getAsJsonObject();
             JsonObject message = choice.has("message") && choice.get("message").isJsonObject()
@@ -148,12 +148,12 @@ public final class AtriaApiClient {
                 content = message.get("content").getAsString();
             }
             if (content == null || content.isBlank()) {
-                return ApiResult.failure("atria.howtofish.err_bad_reply");
+                return ApiResult.failure("atria.err_bad_reply");
             }
             return ApiResult.success(content.strip());
         } catch (Exception ex) {
-            HowToFishMod.LOGGER.warn("Atria Dawn: не удалось разобрать ответ API: {}", snippet(body), ex);
-            return ApiResult.failure("atria.howtofish.err_bad_reply");
+            AtriaDawnMod.LOGGER.warn("Atria Dawn: не удалось разобрать ответ API: {}", snippet(body), ex);
+            return ApiResult.failure("atria.err_bad_reply");
         }
     }
 

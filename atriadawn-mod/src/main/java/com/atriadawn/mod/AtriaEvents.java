@@ -1,4 +1,4 @@
-package com.howtofish.mod.atria;
+package com.atriadawn.mod;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -38,7 +38,7 @@ public class AtriaEvents {
         ServerPlayer player = event.getPlayer();
         String text = raw.substring(prefix.length()).strip();
         if (text.isEmpty()) {
-            player.sendSystemMessage(Component.translatable("atria.howtofish.hint_usage", prefix)
+            player.sendSystemMessage(Component.translatable("atria.hint_usage", prefix)
                     .withStyle(ChatFormatting.YELLOW));
             return;
         }

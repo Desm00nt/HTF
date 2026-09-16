@@ -1,4 +1,4 @@
-package com.howtofish.mod.atria;
+package com.atriadawn.mod;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -48,11 +48,11 @@ public final class AtriaChatManager {
         AtriaConfig cfg = AtriaConfig.get();
 
         if (cfg.resolveApiKey().isEmpty()) {
-            send(player, Component.translatable("atria.howtofish.err_no_key").withStyle(ChatFormatting.RED));
+            send(player, Component.translatable("atria.err_no_key").withStyle(ChatFormatting.RED));
             return;
         }
         if (userText.length() > MAX_QUESTION_CHARS) {
-            send(player, Component.translatable("atria.howtofish.too_long", MAX_QUESTION_CHARS)
+            send(player, Component.translatable("atria.too_long", MAX_QUESTION_CHARS)
                     .withStyle(ChatFormatting.YELLOW));
             return;
         }
@@ -62,12 +62,12 @@ public final class AtriaChatManager {
         long last = LAST_REQUEST.getOrDefault(playerId, 0L);
         if (cooldownMs > 0 && now - last < cooldownMs) {
             long secondsLeft = (cooldownMs - (now - last) + 999) / 1000;
-            send(player, Component.translatable("atria.howtofish.cooldown", secondsLeft)
+            send(player, Component.translatable("atria.cooldown", secondsLeft)
                     .withStyle(ChatFormatting.RED));
             return;
         }
         if (!PENDING.add(playerId)) {
-            send(player, Component.translatable("atria.howtofish.busy").withStyle(ChatFormatting.YELLOW));
+            send(player, Component.translatable("atria.busy").withStyle(ChatFormatting.YELLOW));
             return;
         }
         LAST_REQUEST.put(playerId, now);
@@ -76,7 +76,7 @@ public final class AtriaChatManager {
         sendMaybeBroadcast(player, cfg.broadcastReplies, questionComponent(player.getGameProfile().getName(), userText));
         if (cfg.showTypingIndicator) {
             sendMaybeBroadcast(player, cfg.broadcastReplies,
-                    Component.translatable("atria.howtofish.typing")
+                    Component.translatable("atria.typing")
                             .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
         }
 
@@ -96,7 +96,7 @@ public final class AtriaChatManager {
             }
             String answer = result.content();
             if (answer == null || answer.isBlank()) {
-                send(target, Component.translatable("atria.howtofish.err_bad_reply").withStyle(ChatFormatting.RED));
+                send(target, Component.translatable("atria.err_bad_reply").withStyle(ChatFormatting.RED));
                 return;
             }
             AtriaConversation.rememberUser(playerId, userText, cfg.maxHistoryMessages);

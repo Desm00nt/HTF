@@ -1,4 +1,4 @@
-package com.howtofish.mod.atria;
+package com.atriadawn.mod;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -38,13 +38,13 @@ public final class AtriaCommands {
     private static Component keyStatus() {
         AtriaConfig cfg = AtriaConfig.get();
         if (cfg.apiKey != null && !cfg.apiKey.isBlank()) {
-            return Component.translatable("atria.howtofish.cmd_key_status_cfg", cfg.maskedKey());
+            return Component.translatable("atria.cmd_key_status_cfg", cfg.maskedKey());
         }
         String envVar = cfg.apiKeyEnvVar == null ? "" : cfg.apiKeyEnvVar.strip();
         if (!envVar.isEmpty() && !cfg.resolveApiKey().isEmpty()) {
-            return Component.translatable("atria.howtofish.cmd_key_status_env", envVar);
+            return Component.translatable("atria.cmd_key_status_env", envVar);
         }
-        return Component.translatable("atria.howtofish.cmd_key_status_none").withStyle(ChatFormatting.YELLOW);
+        return Component.translatable("atria.cmd_key_status_none").withStyle(ChatFormatting.YELLOW);
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -56,7 +56,7 @@ public final class AtriaCommands {
                         .executes(ctx -> {
                             ServerPlayer player = ctx.getSource().getPlayerOrException();
                             AtriaConversation.clear(player.getUUID());
-                            player.sendSystemMessage(Component.translatable("atria.howtofish.cmd_reset")
+                            player.sendSystemMessage(Component.translatable("atria.cmd_reset")
                                     .withStyle(ChatFormatting.GREEN));
                             return 1;
                         }))
@@ -67,15 +67,15 @@ public final class AtriaCommands {
                             AtriaConfig cfg = AtriaConfig.get();
                             boolean hasKey = !cfg.resolveApiKey().isEmpty();
                             ctx.getSource().sendSuccess(Component.translatable(hasKey
-                                    ? "atria.howtofish.cmd_reload"
-                                    : "atria.howtofish.cmd_reload_nokey"), true);
+                                    ? "atria.cmd_reload"
+                                    : "atria.cmd_reload_nokey"), true);
                             return 1;
                         }))
                 .then(Commands.literal("key")
                         // /atria key (без аргументов) — краткая справка
                         .executes(ctx -> {
                             ctx.getSource().sendSuccess(
-                                    Component.translatable("atria.howtofish.cmd_key_hint"), false);
+                                    Component.translatable("atria.cmd_key_hint"), false);
                             return 1;
                         })
                         .then(Commands.literal("status")
@@ -88,7 +88,7 @@ public final class AtriaCommands {
                                 .executes(ctx -> {
                                     AtriaConfig.get().clearApiKey();
                                     ctx.getSource().sendSuccess(
-                                            Component.translatable("atria.howtofish.cmd_key_cleared"), true);
+                                            Component.translatable("atria.cmd_key_cleared"), true);
                                     return 1;
                                 }))
                         .then(Commands.argument("apikey", StringArgumentType.greedyString())
@@ -101,13 +101,13 @@ public final class AtriaCommands {
                                     }
                                     if (!isValidKey(raw)) {
                                         ctx.getSource().sendFailure(Component.translatable(
-                                                "atria.howtofish.cmd_key_invalid", MIN_KEY_LENGTH));
+                                                "atria.cmd_key_invalid", MIN_KEY_LENGTH));
                                         return 0;
                                     }
                                     AtriaConfig cfg = AtriaConfig.get();
                                     cfg.setApiKey(raw);
                                     ctx.getSource().sendSuccess(Component.translatable(
-                                            "atria.howtofish.cmd_key_set", cfg.maskedKey()), true);
+                                            "atria.cmd_key_set", cfg.maskedKey()), true);
                                     return 1;
                                 })))
                 // аргумент регистрируется последним: точные литералы выше имеют приоритет
@@ -116,7 +116,7 @@ public final class AtriaCommands {
                             ServerPlayer player = ctx.getSource().getPlayerOrException();
                             String text = StringArgumentType.getString(ctx, "message").strip();
                             if (text.isEmpty()) {
-                                player.sendSystemMessage(Component.translatable("atria.howtofish.cmd_empty")
+                                player.sendSystemMessage(Component.translatable("atria.cmd_empty")
                                         .withStyle(ChatFormatting.YELLOW));
                                 return 0;
                             }
@@ -129,10 +129,10 @@ public final class AtriaCommands {
         AtriaConfig cfg = AtriaConfig.get();
         String prefix = cfg.chatPrefix == null || cfg.chatPrefix.strip().isEmpty()
                 ? "/" : cfg.chatPrefix.strip();
-        source.sendSuccess(Component.translatable("atria.howtofish.about_1", AtriaChatManager.BOT_NAME), false);
-        source.sendSuccess(Component.translatable("atria.howtofish.about_2", prefix), false);
-        source.sendSuccess(Component.translatable("atria.howtofish.about_3"), false);
-        source.sendSuccess(Component.translatable("atria.howtofish.about_4",
+        source.sendSuccess(Component.translatable("atria.about_1", AtriaChatManager.BOT_NAME), false);
+        source.sendSuccess(Component.translatable("atria.about_2", prefix), false);
+        source.sendSuccess(Component.translatable("atria.about_3"), false);
+        source.sendSuccess(Component.translatable("atria.about_4",
                 Math.max(1, cfg.maxHistoryMessages / 2)), false);
         return 1;
     }
