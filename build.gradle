@@ -116,3 +116,145 @@ publishing {
         }
     }
 }
+
+// ---- Atria Dawn Chat: build the standalone mod's jar inside this build ----
+// The sources live in atriadawn-mod/ as an independent mod (own mod id
+// "atriadawn"), but they are compiled and packaged here too, so the root CI
+// artifact (build/libs/*.jar) ships both jars. This block skips itself when
+// the folder is moved to its own repository.
+def atriaDir = file('atriadawn-mod')
+if (atriaDir.isDirectory()) {
+    def atriaProps = new Properties()
+    new File(atriaDir, 'gradle.properties').withInputStream { atriaProps.load(it) }
+
+    sourceSets {
+        atriadawn {
+            java.srcDir new File(atriaDir, 'src/main/java')
+            resources.srcDir new File(atriaDir, 'src/main/resources')
+        }
+    }
+    // The atriadawn code uses the same Minecraft/Forge APIs as the main mod.
+    sourceSets.atriadawn.compileClasspath += sourceSets.main.compileClasspath
+
+    def atriaReplace = [
+            minecraft_version: minecraft_version,
+            forge_version    : forge_version,
+            mod_id           : atriaProps.getProperty('mod_id'),
+            mod_name         : atriaProps.getProperty('mod_name'),
+            mod_license      : atriaProps.getProperty('mod_license'),
+            mod_version      : atriaProps.getProperty('mod_version'),
+            mod_authors      : atriaProps.getProperty('mod_authors'),
+            mod_description  : atriaProps.getProperty('mod_description')
+    ]
+
+    tasks.register('atriadawnJar', Jar) {
+        archiveBaseName = atriaProps.getProperty('mod_id')
+        archiveVersion = atriaProps.getProperty('mod_version')
+        // Bare Jar tasks default to build/ — send the output to build/libs
+        // so the CI artifact glob (build/libs/*.jar) picks it up.
+        destinationDirectory = layout.buildDirectory.dir('libs')
+        from sourceSets.atriadawn.output
+        manifest {
+            attributes([
+                    'Specification-Title'   : atriaProps.getProperty('mod_id'),
+                    'Specification-Vendor'  : atriaProps.getProperty('mod_authors'),
+                    'Specification-Version' : '1',
+                    'Implementation-Title'  : atriaProps.getProperty('mod_name'),
+                    'Implementation-Version': atriaProps.getProperty('mod_version'),
+                    'Implementation-Vendor' : atriaProps.getProperty('mod_authors')
+            ])
+        }
+    }
+
+    // Expand ${mod_id} etc. in the atriadawn mods.toml.
+    tasks.named('processAtriadawnResources', Copy).configure {
+        inputs.properties atriaReplace
+        filesMatching('META-INF/mods.toml') {
+            expand atriaReplace
+        }
+    }
+
+    // ForgeGradle 5: register a reobfAtriadawnJar task (SRG remap for release),
+    // same as reobfJar for the main jar; assemble depends on it automatically.
+    reobf {
+        create('atriadawnJar')
+    }
+
+    // ---- Delivery + diagnostics channel ----
+    // The root CI artifact reliably carries build/libs/*.jar; to make sure the
+    // atriadawn jar is always obtainable, embed the (reobfed) atriadawn jar
+    // and a small diagnostics report into the howtofish jar itself. Extra
+    // entries are ignored by Forge; unzip the howtofish jar to extract them.
+    def atriaCanary = tasks.register('atriadawnCanaryTxt') {
+        def out = layout.buildDirectory.file('atriadawn-canary.txt')
+        outputs.file(out)
+        doLast {
+            def f = out.get().asFile
+            f.parentFile.mkdirs()
+            def libsDir = new File(buildDir, 'libs')
+            f.text = "atriadawn embed diagnostics\n" +
+                    "sourceSets: ${sourceSets.names}\n" +
+                    "atriadawn tasks: ${project.tasks.names.findAll { it.toLowerCase().contains('atriadawn') }.sort()}\n" +
+                    "build/libs: ${libsDir.isDirectory() ? libsDir.listFiles().collect { it.name + ' ' + it.length() }.sort() : 'missing'}\n"
+        }
+    }
+    tasks.named('jar', Jar).configure {
+        dependsOn 'reobfAtriadawnJar'   // embed the POST-reobf atriadawn jar
+        dependsOn atriaCanary
+        from(tasks.named('atriadawnJar', Jar).map { it.archiveFile })
+        from(atriaCanary.map { it.outputs.files.first() })
+    }
+}
+
+// ---- CI diagnostics: after every build, sweep the repo for any produced
+// atriadawn jar and pack it (plus a full state report) into build/libs as a
+// tiny zip named *.jar, so the CI artifact always carries the evidence.
+def atriaDiagDir = file('atriadawn-mod')
+gradle.buildFinished {
+    if (!atriaDiagDir.isDirectory()) {
+        return
+    }
+    def rootLibs = new File(buildDir, 'libs')
+    rootLibs.mkdirs()
+    def sweep = []
+    projectDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+        if (f.name.startsWith('atriadawn') && f.name.endsWith('.jar') && f.length() > 0
+                && !f.parentFile.equals(rootLibs)
+                && !f.absolutePath.contains('/.git/')
+                && f.parentFile.name != '.gradle') {
+            sweep << f
+        }
+    }
+    sweep.each { f ->
+        def target = new File(rootLibs, f.name)
+        java.nio.file.Files.copy(f.toPath(), target.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    }
+    def sb = new StringBuilder()
+    sb << "buildDir: ${buildDir.absolutePath}\n"
+    sb << "sourceSets: ${project.sourceSets.names}\n"
+    sb << "atriadawn tasks: ${project.tasks.names.findAll { it.toLowerCase().contains('atriadawn') }.sort()}\n"
+    sb << "reobf tasks: ${project.tasks.names.findAll { it.startsWith('reobf') }.sort()}\n"
+    sb << "build/libs: ${rootLibs.listFiles()?.collect { it.name + ' ' + it.length() }?.sort()}\n"
+    sb << "sweep: ${sweep.collect { it.absolutePath + ' ' + it.length() }}\n"
+    def subBuild = new File(atriaDiagDir, 'build')
+    if (subBuild.isDirectory()) {
+        subBuild.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+            sb << "sub: ${f.absolutePath.replace(atriaDiagDir.absolutePath, '')} ${f.length()}\n"
+        }
+    } else {
+        sb << "sub build dir: absent\n"
+    }
+    def canary = new File(rootLibs, 'atriadawn-canary.jar')
+    def zos = new java.util.zip.ZipOutputStream(new FileOutputStream(canary))
+    zos.putNextEntry(new java.util.zip.ZipEntry('canary.txt'))
+    zos.write(sb.toString().getBytes('UTF-8'))
+    zos.closeEntry()
+    sweep.each { f ->
+        zos.putNextEntry(new java.util.zip.ZipEntry('found/' + f.name))
+        zos.write(f.bytes)
+        zos.closeEntry()
+    }
+    zos.close()
+    println "atriadawn CANARY: ${sb.toString().replace('\n', ' | ')}"
+}
