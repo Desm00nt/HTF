@@ -25,5 +25,6 @@
     "atria.about_1": "%s - an AI companion living right in your chat.",
     "atria.about_2": "How to ask: start a chat message with %s, or use /atria <message>.",
     "atria.about_3": "/atria reset - forget the dialog, /atria key <key> - set the API key (ops), /atria reload - re-read config/atriadawn.json (ops).",
-    "atria.about_4": "Atria Dawn remembers the last %s messages of your dialogue."
+    "atria.about_4": "Atria Dawn remembers the last %s messages of your dialogue.",
+    "atria.about_noperm": "Note: /atria key and /atria reload are for server operators; in a single-player world its owner can use them too (cheats not required)."
 }

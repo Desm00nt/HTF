@@ -34,6 +34,19 @@ public final class AtriaCommands {
         return key.length() >= MIN_KEY_LENGTH && !key.matches(".*\\s.*");
     }
 
+    /**
+     * Кто может управлять API-ключом: оператор сервера, а в одиночном мире —
+     * его владелец (даже без включённых читов). Без этого узлы команды с
+     * requires скрываются клиентом и ввод ключа падает с «Неверный аргумент».
+     */
+    private static boolean canManageKey(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player != null && source.getServer().isSingleplayerOwner(player.getGameProfile())) {
+            return true;
+        }
+        return source.hasPermission(2);
+    }
+
     /** Строка статуса ключа: из конфига (маскирован), из env или не задан. */
     private static Component keyStatus() {
         AtriaConfig cfg = AtriaConfig.get();
@@ -61,7 +74,7 @@ public final class AtriaCommands {
                             return 1;
                         }))
                 .then(Commands.literal("reload")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(AtriaCommands::canManageKey)
                         .executes(ctx -> {
                             AtriaConfig.reload();
                             AtriaConfig cfg = AtriaConfig.get();
@@ -84,7 +97,7 @@ public final class AtriaCommands {
                                     return 1;
                                 }))
                         .then(Commands.literal("clear")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(AtriaCommands::canManageKey)
                                 .executes(ctx -> {
                                     AtriaConfig.get().clearApiKey();
                                     ctx.getSource().sendSuccess(
@@ -92,7 +105,7 @@ public final class AtriaCommands {
                                     return 1;
                                 }))
                         .then(Commands.argument("apikey", StringArgumentType.greedyString())
-                                .requires(source -> source.hasPermission(2))
+                                .requires(AtriaCommands::canManageKey)
                                 .executes(ctx -> {
                                     String raw = StringArgumentType.getString(ctx, "apikey").strip();
                                     // убираем случайные кавычки вокруг скопированного ключа
@@ -134,6 +147,9 @@ public final class AtriaCommands {
         source.sendSuccess(Component.translatable("atria.about_3"), false);
         source.sendSuccess(Component.translatable("atria.about_4",
                 Math.max(1, cfg.maxHistoryMessages / 2)), false);
+        if (!canManageKey(source)) {
+            source.sendSuccess(Component.translatable("atria.about_noperm"), false);
+        }
         return 1;
     }
 }
