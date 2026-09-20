@@ -117,7 +117,7 @@ public final class AtriaAgentManager {
         SESSIONS.put(owner.getUUID(), session);
 
         session.messages.add(systemMessage(buildSystemPrompt(cfg)));
-        session.messages.add(userMessage("ЗАДАЧА от игрока " + owner.getGameProfile().getName()
+        session.messages.add(userMessage("ЗАДАЧА от игрока " + session.companion.getOwnerUuid()
                 + ": " + task.strip() + "\nТвоё текущее состояние: " + AtriaTools.execute(companion, "get_status", null).join()));
         owner.sendSystemMessage(Component.translatable("atria.agent_started").withStyle(ChatFormatting.DARK_AQUA));
         iterate(session);
@@ -197,7 +197,7 @@ public final class AtriaAgentManager {
                     AtriaDawnMod.LOGGER.warn("Atria agent: некорректный tool_call", ex);
                 }
                 callIds.add(callId);
-                AtriaDawnMod.LOGGER.info("Atria agent[{}]: tool '{}' {}", owner.getGameProfile().getName(), name, args);
+                AtriaDawnMod.LOGGER.info("Atria agent[{}]: tool '{}' {}", session.companion.getOwnerUuid(), name, args);
                 if ("finish".equals(name)) {
                     futures.add(java.util.concurrent.CompletableFuture.completedFuture(
                             "FINISH: " + safeArg(args, "summary")));
@@ -235,7 +235,7 @@ public final class AtriaAgentManager {
             String name = inline.get("tool").getAsString();
             JsonObject args = inline.has("args") && inline.get("args").isJsonObject()
                     ? inline.getAsJsonObject("args") : new JsonObject();
-            AtriaDawnMod.LOGGER.info("Atria agent[{}]: inline tool '{}' {}", owner.getGameProfile().getName(), name, args);
+            AtriaDawnMod.LOGGER.info("Atria agent[{}]: inline tool '{}' {}", session.companion.getOwnerUuid(), name, args);
             java.util.concurrent.CompletableFuture<String> future = "finish".equals(name)
                     ? java.util.concurrent.CompletableFuture.completedFuture("FINISH: " + safeArg(args, "summary"))
                     : AtriaTools.execute(session.companion, name, args);
