@@ -1,6 +1,6 @@
 package com.atriadawn.mod.entity;
 
-import com.atriadawn.mod.AtriaAgentManager;
+import com.atriadawn.mod.agent.AtriaAgentManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
