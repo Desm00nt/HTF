@@ -1,6 +1,6 @@
 package com.atriadawn.mod;
 
-import net.minecraft.client.ChatPreviewStatus;
+import net.minecraft.client.multiplayer.chat.ChatPreviewStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
