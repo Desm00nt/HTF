@@ -12,6 +12,17 @@ reference game) → spend your Rubles in his shop → feed him a beer to get a
 bait can, summon the Spider Crab boss with it, and turn in its shell for the
 coordinates of the next island (read them with the Radar while in the boat).
 
+> 💬 **Хочешь общаться с нейросетью в чате?** В репозитории есть отдельный,
+> полностью автономный мод **[Atria Dawn Chat](atriadawn-mod/)** (папка
+> `atriadawn-mod/`) — ИИ-модель Atria Dawn отвечает на ваши сообщения прямо
+> в игровом чате, на русском языке. Он никак не зависит от How To Fish:
+> можно поставить только его. Подробности — в [его README](atriadawn-mod/README.md).
+>
+> 📦 **Где взять jar:** корневой CI собирает оба мода — артефакт `howtofish-mod`
+> содержит `howtofish-1.0.0.jar`, **внутри которого** лежит готовый
+> `atriadawn-1.0.1.jar` (извлеките его любым архиватором, как из zip) и
+> `atriadawn-canary.txt`.
+
 ## Feature checklist vs. your request
 
 | Request | Implementation |
