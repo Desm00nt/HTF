@@ -113,7 +113,7 @@ public final class AtriaChatManager {
 
         AtriaApiClient.chat(cfg, history, playerName, userText).thenAccept(result -> server.execute(() -> {
             PENDING.remove(playerId);
-            ServerPlayer target = MinecraftServerGetter.get().getPlayerList().getPlayer(playerId);
+            ServerPlayer target = server.getPlayerList().getPlayer(playerId);
             if (target == null) {
                 return; // игрок успел выйти — доставлять некому
             }
