@@ -5,6 +5,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.ServerChatEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
@@ -48,6 +49,21 @@ public class AtriaEvents {
     @SubscribeEvent
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         AtriaChatManager.forget(event.getEntity().getUUID());
+    }
+
+    private int tickCounter = 0;
+
+    /** Отправляет накопленные вопросы, когда игрок закончил печатать (раз в 0,5 с). */
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (++tickCounter < 10) {
+            return;
+        }
+        tickCounter = 0;
+        AtriaChatManager.tickFlush();
     }
 
     @SubscribeEvent

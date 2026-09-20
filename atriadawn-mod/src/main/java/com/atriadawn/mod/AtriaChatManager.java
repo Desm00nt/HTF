@@ -15,64 +15,92 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Оркестратор диалога с Atria Dawn: антиспам-кулдаун, «одно сообщение
- * за раз» на игрока, показ вопроса и индикатора «печатает…», вызов
- * {@link AtriaApiClient} и доставка ответа в чат.
+ * Оркестратор диалога с Atria Dawn.
  *
- * <p>Запрос выполняется асинхронно; обратно на серверный поток
- * возвращаемся через {@link MinecraftServer#execute(Runnable)},
- * как того требует потоковая модель Minecraft.</p>
+ * <p>Защита от «флуда печатанием»: если триггеры чата приходят чаще, чем
+ * раз в {@link #DEBOUNCE_MS} мс (игрок ещё печатает, либо что-то шлёт
+ * заготовки по нажатию клавиш), вопрос <b>не</b> отправляется сразу — текст
+ * копируется в очередь и заменяется более новым. Запрос уходит, когда
+ * наступает тишина ({@link #tickFlush()} вызывается из серверного тика),
+ * причём уходит только <b>последний</b> вариант текста. Так мусорные фрагменты
+ * («@п», «@при») не долетают до нейросети, а игрок всегда получает ответ на
+ * своё полное сообщение.</p>
+ *
+ * <p>Дополнительно действует «период тишины» {@code cooldownSeconds} между
+ * запросами одного игрока; вопрос, пришедший раньше, ждёт в той же очереди
+ * и отправляется, когда период истечёт. Никакого спама предупреждениями —
+ * сообщения об ошибках приходят только на реально отправленные запросы.</p>
  */
 public final class AtriaChatManager {
 
     public static final String BOT_NAME = "Atria Dawn";
     /** Максимальная длина одного вопроса (защита от копипасты на 10 страниц). */
     public static final int MAX_QUESTION_CHARS = 2000;
+    /** Минимальная длина вопроса — мусорные обрывки «@п» игнорируются молча. */
+    public static final int MIN_QUESTION_CHARS = 3;
+    /** Пока с последнего триггера прошло меньше этого времени, вопрос копится. */
+    public static final long DEBOUNCE_MS = 1200L;
+
+    /** Вопрос, ожидающий отправки (последний вариант текста побеждает). */
+    private record QueuedQuestion(String text, long queuedAtMillis) {
+    }
 
     private static final Set<UUID> PENDING = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, QueuedQuestion> QUEUED = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> LAST_REQUEST = new ConcurrentHashMap<>();
+    /** Ограничитель частоты сообщений об ошибках на игрока (антиспам чата). */
+    private static final Map<UUID, Long> LAST_ERROR_MESSAGE = new ConcurrentHashMap<>();
 
     private AtriaChatManager() {
     }
 
     /**
-     * Задать вопрос нейросети от лица игрока. Вызывается с серверного потока
-     * (обработчик чата или команда {@code /atria}).
+     * Триггер вопроса (из чата с префиксом или команды /atria).
+     * Вызывается с серверного потока. Вопрос всегда сначала кладётся в
+     * очередь: {@link #tickFlush()} отправит его, когда игрок закончит
+     * печатать (тишина {@link #DEBOUNCE_MS} мс) — так обрывки слов при
+     * наборе и ложные срабатывания не долетают до нейросети.
      */
     public static void ask(ServerPlayer player, String userText) {
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-        if (server == null) {
-            return;
-        }
         UUID playerId = player.getUUID();
         AtriaConfig cfg = AtriaConfig.get();
 
         if (cfg.resolveApiKey().isEmpty()) {
-            send(player, Component.translatable("atria.err_no_key").withStyle(ChatFormatting.RED));
+            // Важное сообщение — не глушим, но и не спамим: раз в 5 секунд.
+            sendError(player, Component.translatable("atria.err_no_key"), cfg);
             return;
         }
         if (userText.length() > MAX_QUESTION_CHARS) {
-            send(player, Component.translatable("atria.too_long", MAX_QUESTION_CHARS)
-                    .withStyle(ChatFormatting.YELLOW));
+            sendError(player, Component.translatable("atria.too_long", MAX_QUESTION_CHARS), cfg);
+            return;
+        }
+        if (userText.length() < MIN_QUESTION_CHARS) {
+            return; // обрывок при наборе — молча игнорируем
+        }
+        QUEUED.put(playerId, new QueuedQuestion(userText, System.currentTimeMillis()));
+    }
+
+    /**
+     * Попытка реально отправить вопрос. Если игрок «в ожидании» ответа или
+     * не истёк период тишины — вопрос кладётся в очередь (побеждает последний).
+     */
+    private static void startAsk(ServerPlayer player, String userText, long now) {
+        UUID playerId = player.getUUID();
+        AtriaConfig cfg = AtriaConfig.get();
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) {
             return;
         }
 
-        long now = System.currentTimeMillis();
         long cooldownMs = Math.max(0, cfg.cooldownSeconds) * 1000L;
-        long last = LAST_REQUEST.getOrDefault(playerId, 0L);
-        if (cooldownMs > 0 && now - last < cooldownMs) {
-            long secondsLeft = (cooldownMs - (now - last) + 999) / 1000;
-            send(player, Component.translatable("atria.cooldown", secondsLeft)
-                    .withStyle(ChatFormatting.RED));
-            return;
-        }
-        if (!PENDING.add(playerId)) {
-            send(player, Component.translatable("atria.busy").withStyle(ChatFormatting.YELLOW));
+        long lastRequest = LAST_REQUEST.getOrDefault(playerId, 0L);
+        if (now - lastRequest < cooldownMs || !PENDING.add(playerId)) {
+            QUEUED.put(playerId, new QueuedQuestion(userText, now));
             return;
         }
         LAST_REQUEST.put(playerId, now);
 
-        // Эхо вопроса + индикатор набора текста.
+        // Эхо вопроса + индикатор набора текста — только у реально ушедшего запроса.
         sendMaybeBroadcast(player, cfg.broadcastReplies, questionComponent(player.getGameProfile().getName(), userText));
         if (cfg.showTypingIndicator) {
             sendMaybeBroadcast(player, cfg.broadcastReplies,
@@ -85,18 +113,17 @@ public final class AtriaChatManager {
 
         AtriaApiClient.chat(cfg, history, playerName, userText).thenAccept(result -> server.execute(() -> {
             PENDING.remove(playerId);
-            ServerPlayer target = server.getPlayerList().getPlayer(playerId);
+            ServerPlayer target = MinecraftServerGetter.get().getPlayerList().getPlayer(playerId);
             if (target == null) {
                 return; // игрок успел выйти — доставлять некому
             }
             if (!result.ok()) {
-                send(target, Component.translatable(result.errorKey(), result.errorArgs())
-                        .withStyle(ChatFormatting.RED));
+                sendError(target, Component.translatable(result.errorKey(), result.errorArgs()), cfg);
                 return;
             }
             String answer = result.content();
             if (answer == null || answer.isBlank()) {
-                send(target, Component.translatable("atria.err_bad_reply").withStyle(ChatFormatting.RED));
+                sendError(target, Component.translatable("atria.err_bad_reply"), cfg);
                 return;
             }
             AtriaConversation.rememberUser(playerId, userText, cfg.maxHistoryMessages);
@@ -107,10 +134,44 @@ public final class AtriaChatManager {
         }));
     }
 
+    /**
+     * Вызывай из серверного тика (раз в несколько тиков): отправляет
+     * накопленные вопросы, когда наступила тишина и истёк период тишины.
+     */
+    public static void tickFlush() {
+        if (QUEUED.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) {
+            return;
+        }
+        for (Map.Entry<UUID, QueuedQuestion> entry : QUEUED.entrySet()) {
+            QueuedQuestion queued = entry.getValue();
+            if (now - queued.queuedAtMillis() < DEBOUNCE_MS) {
+                continue; // игрок ещё «печатает»
+            }
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player == null) {
+                QUEUED.remove(entry.getKey());
+                continue;
+            }
+            if (PENDING.contains(entry.getKey())) {
+                continue; // ждём текущий ответ — очередь уйдёт после него
+            }
+            if (QUEUED.remove(entry.getKey(), queued)) {
+                startAsk(player, queued.text(), now);
+            }
+        }
+    }
+
     /** Забыть всё про игрока (выход с сервера). */
     public static void forget(UUID playerId) {
         PENDING.remove(playerId);
+        QUEUED.remove(playerId);
         LAST_REQUEST.remove(playerId);
+        LAST_ERROR_MESSAGE.remove(playerId);
         AtriaConversation.clear(playerId);
     }
 
@@ -188,8 +249,15 @@ public final class AtriaChatManager {
         return chunks;
     }
 
-    private static void send(ServerPlayer player, Component message) {
-        player.sendSystemMessage(message);
+    /** Сообщение об ошибке не чаще, чем раз в 5 секунд на игрока. */
+    private static void sendError(ServerPlayer player, Component message, AtriaConfig cfg) {
+        long now = System.currentTimeMillis();
+        Long last = LAST_ERROR_MESSAGE.get(player.getUUID());
+        if (last != null && now - last < 5000L) {
+            return;
+        }
+        LAST_ERROR_MESSAGE.put(player.getUUID(), now);
+        player.sendSystemMessage(message.copy().withStyle(ChatFormatting.RED));
     }
 
     private static void sendMaybeBroadcast(ServerPlayer player, boolean broadcast, Component message) {
