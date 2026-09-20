@@ -2,6 +2,7 @@ package com.atriadawn.mod.agent;
 
 import com.atriadawn.mod.AtriaApiClient;
 import com.atriadawn.mod.AtriaConfig;
+import com.atriadawn.mod.AtriaConversation;
 import com.atriadawn.mod.AtriaDawnMod;
 import com.atriadawn.mod.entity.AtriaCompanionEntity;
 import com.google.gson.JsonArray;
@@ -67,14 +68,16 @@ public final class AtriaAgentManager {
     private static final class Session {
         final AtriaCompanionEntity companion;
         final UUID ownerUuid;
+        final String task;
         final JsonArray messages = new JsonArray();
         final long startedAtMillis = System.currentTimeMillis();
         volatile boolean cancelled = false;
         int iterations = 0;
 
-        Session(AtriaCompanionEntity companion, UUID ownerUuid) {
+        Session(AtriaCompanionEntity companion, UUID ownerUuid, String task) {
             this.companion = companion;
             this.ownerUuid = ownerUuid;
+            this.task = task;
         }
 
         /** Свежая ссылка на владельца (null, если вышел с сервера). */
@@ -113,7 +116,7 @@ public final class AtriaAgentManager {
             return;
         }
 
-        Session session = new Session(companion, owner.getUUID());
+        Session session = new Session(companion, owner.getUUID(), task.strip());
         SESSIONS.put(owner.getUUID(), session);
 
         session.messages.add(systemMessage(buildSystemPrompt(cfg)));
@@ -267,6 +270,14 @@ public final class AtriaAgentManager {
     private static void finish(Session session, Component finalMessage) {
         SESSIONS.remove(session.ownerUuid);
         session.companion.cancelAction();
+        // Память: обычный чат-бот узнаёт, чем занимался агент ("@что ты делала?").
+        try {
+            int max = AtriaConfig.get().maxHistoryMessages;
+            AtriaConversation.rememberUser(session.ownerUuid, "[игрок дал агенту задачу: " + session.task + "]", max);
+            AtriaConversation.rememberAssistant(session.ownerUuid,
+                    "[агент завершил задачу; итог: " + finalMessage.getString() + "]", max);
+        } catch (Exception ignored) {
+        }
         ServerPlayer owner = session.owner();
         if (owner != null) {
             owner.sendSystemMessage(finalMessage);
@@ -309,6 +320,9 @@ public final class AtriaAgentManager {
                 + "5. Действуй по шагам: сначала scan_area (осмотреться), затем walk_to рядом, затем действие. "
                 + "Координаты — целые числа x,y,z. Точка place_block должна быть в 5 блоках от тела.\n"
                 + "6. Не ломай сундуки и блоки рядом с игроком. Добывай только то, что нужно для задачи.\n"
+                + "7. Для задач 'добудь и принеси' в конце вызывай give_to_player. Чтобы скрафтить сложный предмет "
+                + "(верстак, инструменты), сначала добудь брёвна, скрафти доски (craft_item 'planks'), поставь верстак "
+                + "(place_block) рядом с собой, затем craft_item рядом с ним.\n"
                 + "Лимит шагов: " + cfg.agentMaxIterations + ". Планируй экономно.";
     }
 

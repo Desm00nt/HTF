@@ -5,8 +5,13 @@ import com.atriadawn.mod.entity.AtriaCompanionEntity;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingRecipe;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.Level;
 
@@ -59,6 +64,17 @@ public final class AtriaTools {
         add(tools, "attack_nearest",
                 "Атаковать ближайшего моба: 'hostile' (по умолчанию), 'any' или подстрока имени, напр. 'zombie'.",
                 attack);
+        JsonObject give = prop(params(), "itemFilter", "необязательный фильтр имени предмета, напр. 'cobblestone'");
+        add(tools, "give_to_player",
+                "Передать владельцу предметы из своего инвентаря (всё или по фильтру). "
+                        + "Для задач вида 'добудь и принеси' вызывай в конце.",
+                give);
+        JsonObject craft = prop(prop(params(), "item", "часть имени результата, напр. 'crafting_table' или 'planks'"),
+                "count", "сколько раз скрафтить (по умолчанию 1)");
+        add(tools, "craft_item",
+                "Скрафтить предмет из своих ингредиентов. Рецепты до 4 ингредиентов доступны без верстака; "
+                        + "для сложных нужен верстак в 3 блоках — если его нет, сначала построй из досок (place_block).",
+                craft);
         add(tools, "say", "Написать короткое сообщение владельцу в чат.",
                 prop(params(), "text", "текст"));
         add(tools, "finish", "Задача выполнена. Обязательно вызови в конце с кратким итогом.",
@@ -184,6 +200,16 @@ public final class AtriaTools {
                 }
                 return companion.beginAttack(target, ATTACK_TIMEOUT);
             }
+            case "give_to_player" -> {
+                String result = companion.giveAllToOwner(argStr(args, "itemFilter", null));
+                companion.say(result);
+                return CompletableFuture.completedFuture(result);
+            }
+            case "craft_item" -> {
+                return CompletableFuture.completedFuture(craftItem(companion,
+                        argStr(args, "item", ""),
+                        Math.max(1, Math.min(16, argInt(args, "count", 1)))));
+            }
             case "say" -> {
                 String text = argStr(args, "text", "");
                 if (!text.isBlank()) {
@@ -198,6 +224,84 @@ public final class AtriaTools {
                 return CompletableFuture.completedFuture("ОШИБКА: неизвестный инструмент '" + name + "'");
             }
         }
+    }
+
+    /**
+     * Крафт по реальным рецептам сервера: ищем рецепт по части имени результата,
+     * проверяем/списываем ингредиенты из инвентаря компаньона, выдаём результат.
+     * Рецепты с 4 и менее непустыми ингредиентами доступны без верстака (сетка 2x2),
+     * для остальных нужен верстак в 3 блоках.
+     */
+    private static String craftItem(AtriaCompanionEntity c, String itemFilter, int count) {
+        if (itemFilter == null || itemFilter.isBlank()) {
+            return "ОШИБКА: укажи 'item' - часть имени результата (напр. 'crafting_table')";
+        }
+        Level level = c.level;
+        boolean hasTable = false;
+        for (BlockPos p : BlockPos.betweenClosed(
+                c.blockPosition().offset(-3, -2, -3), c.blockPosition().offset(3, 2, 3))) {
+            if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE)) {
+                hasTable = true;
+                break;
+            }
+        }
+        CraftingRecipe chosen = null;
+        for (CraftingRecipe r : level.getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING)) {
+            try {
+                ItemStack out = r.getResultItem();
+                if (out.isEmpty()) {
+                    continue;
+                }
+                String id = Registry.ITEM.getKey(out.getItem()).getPath();
+                if (!id.contains(itemFilter.toLowerCase().strip())) {
+                    continue;
+                }
+                long need = r.getIngredients().stream().filter(i -> !i.isEmpty()).count();
+                if (!hasTable && need > 4) {
+                    continue;
+                }
+                chosen = r;
+                break;
+            } catch (Exception ignored) {
+            }
+        }
+        if (chosen == null) {
+            return "рецепт не найден" + (hasTable ? "" :
+                    " (верстака рядом нет - доступны только рецепты до 4 ингредиентов; построй верстак из досок)");
+        }
+        int crafted = 0;
+        for (int attempt = 0; attempt < count; attempt++) {
+            java.util.List<ItemStack> toConsume = new java.util.ArrayList<>();
+            boolean ok = true;
+            for (Ingredient ing : chosen.getIngredients()) {
+                if (ing.isEmpty()) {
+                    continue;
+                }
+                ItemStack slot = c.findMatching(ing::test);
+                if (slot.isEmpty()) {
+                    ok = false;
+                    break;
+                }
+                toConsume.add(slot);
+            }
+            if (!ok) {
+                break;
+            }
+            for (ItemStack slot : toConsume) {
+                c.consumeOne(slot);
+            }
+            ItemStack result = chosen.getResultItem().copy();
+            if (!c.addStack(result) && !result.isEmpty()) {
+                c.spawnAtLocation(result);
+            }
+            crafted++;
+        }
+        if (crafted == 0) {
+            return "не хватило ингредиентов для '" + itemFilter + "'; инвентарь: " + c.inventorySummary();
+        }
+        return "скрафтил " + crafted + " x "
+                + Registry.ITEM.getKey(chosen.getResultItem().getItem()).getPath()
+                + "; инвентарь: " + c.inventorySummary();
     }
 
     // ---- вспомогательное ----

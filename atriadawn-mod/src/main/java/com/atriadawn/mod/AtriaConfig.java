@@ -93,6 +93,10 @@ public final class AtriaConfig {
     public boolean agentCanPlaceBlocks = true;
     /** Таймаут всей задачи, секунд. */
     public int agentTaskTimeoutSeconds = 300;
+    /** Компаньон сам ест еду из инвентаря при потере здоровья. */
+    public boolean agentAutoEat = true;
+    /** Телепортироваться к владельцу, если отстала дальше ~40 блоков. */
+    public boolean agentStuckTeleport = true;
 
     private AtriaConfig() {
     }
@@ -171,6 +175,8 @@ public final class AtriaConfig {
         agentCanBreakBlocks = readBool(obj, "agentCanBreakBlocks", agentCanBreakBlocks);
         agentCanPlaceBlocks = readBool(obj, "agentCanPlaceBlocks", agentCanPlaceBlocks);
         agentTaskTimeoutSeconds = readInt(obj, "agentTaskTimeoutSeconds", agentTaskTimeoutSeconds);
+        agentAutoEat = readBool(obj, "agentAutoEat", agentAutoEat);
+        agentStuckTeleport = readBool(obj, "agentStuckTeleport", agentStuckTeleport);
 
         agentMaxIterations = Math.max(1, Math.min(40, agentMaxIterations));
         agentActionRadius = Math.max(8, Math.min(128, agentActionRadius));
@@ -213,6 +219,8 @@ public final class AtriaConfig {
             obj.addProperty("agentCanBreakBlocks", agentCanBreakBlocks);
             obj.addProperty("agentCanPlaceBlocks", agentCanPlaceBlocks);
             obj.addProperty("agentTaskTimeoutSeconds", agentTaskTimeoutSeconds);
+            obj.addProperty("agentAutoEat", agentAutoEat);
+            obj.addProperty("agentStuckTeleport", agentStuckTeleport);
             try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
                 Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
                 gson.toJson(obj, writer);

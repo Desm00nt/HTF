@@ -11,6 +11,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -35,6 +36,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 
 /**
  * Тело-аватар Atria Dawn: гуманоидный компаньон, которым управляет
@@ -62,6 +64,7 @@ public class AtriaCompanionEntity extends PathfinderMob {
     private int breakProgress;
     private int attackCooldown;
     private int ambientCooldown;
+    private int eatCooldown;
     /** Счётчик шагов добычи для диагностики владельцу. */
     private int minedCount;
 
@@ -174,6 +177,7 @@ public class AtriaCompanionEntity extends PathfinderMob {
 
     private void serverAiTick() {
         vacuumNearbyItems();
+        autoEat();
         if (timeoutTicks > 0) {
             timeoutTicks--;
         }
@@ -195,11 +199,40 @@ public class AtriaCompanionEntity extends PathfinderMob {
             return;
         }
         double distSq = distanceToSqr(owner);
+        if (distSq > 1600.0D) { // дальше ~40 блоков — потерялась
+            if (com.atriadawn.mod.AtriaConfig.get().agentStuckTeleport) {
+                teleportTo(owner.getX(), owner.getY(), owner.getZ());
+                say("я потерялась и телепортировалась к тебе");
+            }
+            return;
+        }
         if (distSq > 49.0D && --ambientCooldown <= 0) {
             ambientCooldown = 20;
             getNavigation().moveTo(owner.getX(), owner.getY(), owner.getZ(), 1.05D);
         } else if (distSq <= 49.0D) {
             ambientCooldown = 0;
+        }
+    }
+
+    /** Подлечиться едой из инвентаря. */
+    private void autoEat() {
+        if (eatCooldown > 0) {
+            eatCooldown--;
+            return;
+        }
+        if (getHealth() >= getMaxHealth() || !com.atriadawn.mod.AtriaConfig.get().agentAutoEat) {
+            return;
+        }
+        for (int i = 0; i < inventory.size(); i++) {
+            ItemStack slot = inventory.get(i);
+            if (!slot.isEmpty() && slot.isEdible()) {
+                FoodProperties food = slot.getItem().getFoodProperties();
+                int nutrition = food == null ? 2 : food.getNutrition();
+                consumeOne(slot);
+                heal(Math.max(2, nutrition));
+                eatCooldown = 100;
+                return;
+            }
         }
     }
 
@@ -362,33 +395,99 @@ public class AtriaCompanionEntity extends PathfinderMob {
             if (item.isRemoved()) {
                 continue;
             }
-            ItemStack stack = item.getItem();
-            if (!stack.isEmpty() && addStack(stack)) {
+            ItemStack stack = item.getItem().copy();
+            if (stack.isEmpty()) {
+                continue;
+            }
+            if (addStack(stack)) {
                 item.discard();
+            } else {
+                item.setItem(stack);
             }
         }
     }
 
-    /** Сложить предмет в инвентарь (со слиянием стаков). true — если поместилось целиком. */
+    /**
+     * Вложить предметы из переданного стека (мутирует его, уменьшая count).
+     * true — если поместилось целиком; иначе в stack остаётся остаток.
+     */
     public boolean addStack(ItemStack stack) {
-        ItemStack copy = stack.copy();
-        for (int i = 0; i < inventory.size() && !copy.isEmpty(); i++) {
+        for (int i = 0; i < inventory.size() && !stack.isEmpty(); i++) {
             ItemStack slot = inventory.get(i);
-            if (!slot.isEmpty() && ItemStack.isSameItemSameTags(slot, copy)) {
+            if (!slot.isEmpty() && ItemStack.isSameItemSameTags(slot, stack)) {
                 int space = Math.min(slot.getMaxStackSize(), 64) - slot.getCount();
                 if (space > 0) {
-                    int moved = Math.min(space, copy.getCount());
+                    int moved = Math.min(space, stack.getCount());
                     slot.grow(moved);
-                    copy.shrink(moved);
+                    stack.shrink(moved);
                 }
             }
         }
-        for (int i = 0; i < inventory.size() && !copy.isEmpty(); i++) {
+        for (int i = 0; i < inventory.size() && !stack.isEmpty(); i++) {
             if (inventory.get(i).isEmpty()) {
-                inventory.set(i, copy.split(copy.getCount()));
+                int moved = Math.min(Math.min(stack.getMaxStackSize(), 64), stack.getCount());
+                inventory.set(i, stack.split(moved));
             }
         }
-        return copy.isEmpty();
+        return stack.isEmpty();
+    }
+
+    /** Найти слот, удовлетворяющий условию (ссылку на реальный стек инвентаря). */
+    public ItemStack findMatching(Predicate<ItemStack> test) {
+        for (ItemStack slot : inventory) {
+            if (!slot.isEmpty() && test.test(slot)) {
+                return slot;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    /** Уменьшить слот на 1 (очищая пустой слот). */
+    public boolean consumeOne(ItemStack slot) {
+        if (slot.isEmpty()) {
+            return false;
+        }
+        slot.shrink(1);
+        if (slot.isEmpty()) {
+            for (int i = 0; i < inventory.size(); i++) {
+                if (inventory.get(i) == slot) {
+                    inventory.set(i, ItemStack.EMPTY);
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Передать предметы владельцу (опционально с фильтром имени). */
+    public String giveAllToOwner(String filter) {
+        ServerPlayer owner = getOwnerPlayer();
+        if (owner == null) {
+            return "ОШИБКА: владелец офлайн";
+        }
+        int given = 0;
+        for (int i = 0; i < inventory.size(); i++) {
+            ItemStack slot = inventory.get(i);
+            if (slot.isEmpty()) {
+                continue;
+            }
+            if (filter != null && !filter.isBlank()) {
+                String id = Registry.ITEM.getKey(slot.getItem()).getPath();
+                if (!id.contains(filter.toLowerCase().strip())) {
+                    continue;
+                }
+            }
+            given += slot.getCount();
+            ItemStack rest = slot.copy();
+            inventory.set(i, ItemStack.EMPTY);
+            if (!owner.getInventory().add(rest) && !rest.isEmpty()) {
+                owner.drop(rest, false);
+            }
+        }
+        if (given == 0) {
+            return "нечего передавать" + (filter != null && !filter.isBlank() ? " с фильтром '" + filter + "'" : "")
+                    + "; инвентарь: " + inventorySummary();
+        }
+        return "передал владельцу " + given + " предметов";
     }
 
     /** Найти и изъять один предмет-блок (опционально с фильтром по имени). */
