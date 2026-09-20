@@ -99,6 +99,10 @@ public final class AtriaChatManager {
             return;
         }
         LAST_REQUEST.put(playerId, now);
+        if (cfg.logTriggers) {
+            AtriaDawnMod.LOGGER.info("Atria send: player='{}' question='{}' (после тишины {} мс)",
+                    playerNameSafe(player), userText, AtriaChatManager.DEBOUNCE_MS);
+        }
 
         // Эхо вопроса + индикатор набора текста — только у реально ушедшего запроса.
         sendMaybeBroadcast(player, cfg.broadcastReplies, questionComponent(player.getGameProfile().getName(), userText));
@@ -247,6 +251,14 @@ public final class AtriaChatManager {
             chunks.add("[...]");
         }
         return chunks;
+    }
+
+    private static String playerNameSafe(ServerPlayer player) {
+        try {
+            return player.getGameProfile().getName();
+        } catch (Exception e) {
+            return player.getStringUUID();
+        }
     }
 
     /** Сообщение об ошибке не чаще, чем раз в 5 секунд на игрока. */

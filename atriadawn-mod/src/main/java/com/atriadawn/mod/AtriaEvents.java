@@ -38,6 +38,10 @@ public class AtriaEvents {
 
         ServerPlayer player = event.getPlayer();
         String text = raw.substring(prefix.length()).strip();
+        if (cfg.logTriggers) {
+            AtriaDawnMod.LOGGER.info("Atria trigger (ServerChatEvent): player='{}' raw='{}' -> queued text='{}'",
+                    player.getGameProfile().getName(), raw, text);
+        }
         if (text.isEmpty()) {
             player.sendSystemMessage(Component.translatable("atria.hint_usage", prefix)
                     .withStyle(ChatFormatting.YELLOW));

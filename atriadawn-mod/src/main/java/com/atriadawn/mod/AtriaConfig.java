@@ -77,6 +77,8 @@ public final class AtriaConfig {
     public boolean showTypingIndicator = true;
     /** true — отвечать всем игрокам на сервере, false — только автору вопроса. */
     public boolean broadcastReplies = false;
+    /** true — писать в лог каждый триггер бота (диагностика ложных срабатываний). */
+    public boolean logTriggers = false;
 
     private AtriaConfig() {
     }
@@ -147,6 +149,7 @@ public final class AtriaConfig {
         maxResponseChars = readInt(obj, "maxResponseChars", maxResponseChars);
         showTypingIndicator = readBool(obj, "showTypingIndicator", showTypingIndicator);
         broadcastReplies = readBool(obj, "broadcastReplies", broadcastReplies);
+        logTriggers = readBool(obj, "logTriggers", logTriggers);
 
         // sanity-ограничения
         maxTokens = Math.max(1, Math.min(65536, maxTokens));
@@ -178,6 +181,7 @@ public final class AtriaConfig {
             obj.addProperty("maxResponseChars", maxResponseChars);
             obj.addProperty("showTypingIndicator", showTypingIndicator);
             obj.addProperty("broadcastReplies", broadcastReplies);
+            obj.addProperty("logTriggers", logTriggers);
             try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
                 Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
                 gson.toJson(obj, writer);
