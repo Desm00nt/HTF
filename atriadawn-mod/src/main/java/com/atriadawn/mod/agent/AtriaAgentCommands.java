@@ -56,7 +56,7 @@ public final class AtriaAgentCommands {
                     .withStyle(net.minecraft.ChatFormatting.YELLOW));
             return;
         }
-        net.minecraft.server.level.ServerLevel level = player.serverLevel();
+        net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) player.level;
         AtriaCompanionEntity companion = com.atriadawn.mod.registry.AtriaRegistry.ATRIA_COMPANION.get().create(level);
         if (companion == null) {
             return;

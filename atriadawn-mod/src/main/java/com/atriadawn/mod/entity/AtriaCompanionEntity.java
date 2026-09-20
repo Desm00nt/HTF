@@ -127,7 +127,7 @@ public class AtriaCompanionEntity extends PathfinderMob {
     }
 
     @Override
-    public void remove(RemovalReason reason) {
+    public void remove(Entity.RemovalReason reason) {
         super.remove(reason);
         if (!level.isClientSide) {
             AtriaAgentManager.onCompanionRemoved(this);
@@ -479,8 +479,8 @@ public class AtriaCompanionEntity extends PathfinderMob {
         Component msg = AtriaAgentManager.agentLine(text);
         if (owner != null) {
             owner.sendSystemMessage(msg);
-        } else if (getServer() != null) {
-            for (ServerPlayer p : getServer().getPlayerList().getPlayers()) {
+        } else if (level.getServer() != null) {
+            for (ServerPlayer p : level.getServer().getPlayerList().getPlayers()) {
                 p.sendSystemMessage(msg);
             }
         }
