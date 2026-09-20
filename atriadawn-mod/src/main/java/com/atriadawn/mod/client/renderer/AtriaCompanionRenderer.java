@@ -14,7 +14,7 @@ public class AtriaCompanionRenderer extends HumanoidMobRenderer<AtriaCompanionEn
             new ResourceLocation("atriadawn", "textures/entity/atria_companion.png");
 
     public AtriaCompanionRenderer(EntityRendererProvider.Context context) {
-        super(context, new HumanoidModel<>(context.bakeLayer(ModelLayers.HUMANOID)), 0.5F);
+        super(context, new HumanoidModel<>(context.bakeLayer(ModelLayers.PLAYER)), 0.5F);
     }
 
     @Override
