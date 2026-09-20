@@ -53,6 +53,7 @@ public class AtriaCompanionEntity extends PathfinderMob {
 
     private UUID ownerUuid;
     private boolean followOwner = true;
+    private boolean guardMode = false;
 
     private enum Action { NONE, WALK, MINE, ATTACK }
 
@@ -65,6 +66,7 @@ public class AtriaCompanionEntity extends PathfinderMob {
     private int attackCooldown;
     private int ambientCooldown;
     private int eatCooldown;
+    private int guardCooldown;
     /** Счётчик шагов добычи для диагностики владельцу. */
     private int minedCount;
 
@@ -119,6 +121,7 @@ public class AtriaCompanionEntity extends PathfinderMob {
             tag.putUUID("AtriaOwner", ownerUuid);
         }
         tag.putBoolean("AtriaFollow", followOwner);
+        tag.putBoolean("AtriaGuard", guardMode);
     }
 
     @Override
@@ -128,6 +131,7 @@ public class AtriaCompanionEntity extends PathfinderMob {
             ownerUuid = tag.getUUID("AtriaOwner");
         }
         followOwner = tag.getBoolean("AtriaFollow");
+        guardMode = tag.getBoolean("AtriaGuard");
     }
 
     @Override
@@ -189,8 +193,20 @@ public class AtriaCompanionEntity extends PathfinderMob {
         }
     }
 
-    /** Простой режим: следование за владельцем. */
+    /** Простой режим: следование за владельцем и охрана. */
     private void tickAmbient() {
+        if (guardMode && --guardCooldown <= 0) {
+            LivingEntity hostile = findAttackTarget(8, "hostile");
+            if (hostile != null) {
+                guardCooldown = 60;
+                beginAttack(hostile, 20 * 30).thenAccept(result -> {
+                    if (!result.startsWith("НЕ СМОГ") && !result.equals("отменено")) {
+                        say(result);
+                    }
+                });
+                return;
+            }
+        }
         if (!followOwner) {
             return;
         }
@@ -432,6 +448,18 @@ public class AtriaCompanionEntity extends PathfinderMob {
         return stack.isEmpty();
     }
 
+    /** Живое представление инвентаря (изменения затрагивают инвентарь). */
+    public java.util.List<ItemStack> getInventoryView() {
+        return inventory;
+    }
+
+    /** Очистить слот по индексу. */
+    public void clearSlot(int index) {
+        if (index >= 0 && index < inventory.size()) {
+            inventory.set(index, ItemStack.EMPTY);
+        }
+    }
+
     /** Найти слот, удовлетворяющий условию (ссылку на реальный стек инвентаря). */
     public ItemStack findMatching(Predicate<ItemStack> test) {
         for (ItemStack slot : inventory) {
@@ -588,6 +616,14 @@ public class AtriaCompanionEntity extends PathfinderMob {
 
     public void setFollowOwner(boolean follow) {
         this.followOwner = follow;
+    }
+
+    public boolean isGuardMode() {
+        return guardMode;
+    }
+
+    public void setGuardMode(boolean guard) {
+        this.guardMode = guard;
     }
 
     public int getMinedCount() {

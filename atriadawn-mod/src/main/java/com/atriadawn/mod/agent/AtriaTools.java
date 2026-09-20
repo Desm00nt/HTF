@@ -10,7 +10,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.Container;
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.Level;
@@ -75,6 +79,21 @@ public final class AtriaTools {
                 "Скрафтить предмет из своих ингредиентов. Рецепты до 4 ингредиентов доступны без верстака; "
                         + "для сложных нужен верстак в 3 блоках — если его нет, сначала построй из досок (place_block).",
                 craft);
+        JsonObject smelt = prop(prop(params(), "item", "часть имени того, что переплавить, напр. 'iron_ore' или 'raw_iron'"),
+                "count", "сколько переплавить (по умолчанию 1, максимум 16)");
+        add(tools, "smelt_item",
+                "Переплавить в печке предмет из своего инвентаря. Нужна печка в 3 блоках (нет - построй из 8 булыжника) "
+                        + "и топливо (уголь, доски, брёвна...): 1 топливный предмет на 1 переплавку.",
+                smelt);
+        JsonObject chest = prop(prop(params(), "mode", "'deposit' - сдать всё в сундук, 'withdraw' - забрать предметы из сундука"),
+                "itemFilter", "необязательный фильтр имени предмета (для withdraw)");
+        add(tools, "use_chest",
+                "Сдать свой инвентарь в ближайший сундук (deposit) или забрать из сундука предметы (withdraw). "
+                        + "Сундук должен быть в 4 блоках.",
+                chest);
+        add(tools, "guard_mode",
+                "Режим охраны: в простое атаковать враждебных мобов в радиусе 8 блоков.",
+                prop(params(), "on", "true или false"));
         add(tools, "say", "Написать короткое сообщение владельцу в чат.",
                 prop(params(), "text", "текст"));
         add(tools, "finish", "Задача выполнена. Обязательно вызови в конце с кратким итогом.",
@@ -210,6 +229,21 @@ public final class AtriaTools {
                         argStr(args, "item", ""),
                         Math.max(1, Math.min(16, argInt(args, "count", 1)))));
             }
+            case "smelt_item" -> {
+                return CompletableFuture.completedFuture(smeltItem(companion,
+                        argStr(args, "item", ""),
+                        Math.max(1, Math.min(16, argInt(args, "count", 1)))));
+            }
+            case "use_chest" -> {
+                String mode = argStr(args, "mode", "deposit");
+                return CompletableFuture.completedFuture(useChest(companion, mode,
+                        argStr(args, "itemFilter", null)));
+            }
+            case "guard_mode" -> {
+                boolean on = argBool(args, "on", true);
+                companion.setGuardMode(on);
+                return CompletableFuture.completedFuture("охрана: " + (on ? "включена" : "выключена"));
+            }
             case "say" -> {
                 String text = argStr(args, "text", "");
                 if (!text.isBlank()) {
@@ -302,6 +336,177 @@ public final class AtriaTools {
         return "скрафтил " + crafted + " x "
                 + Registry.ITEM.getKey(chosen.getResultItem().getItem()).getPath()
                 + "; инвентарь: " + c.inventorySummary();
+    }
+
+    /**
+     * Переплавка: печка в 3 блоках, рецепт SMELTING по фильтру (по результату
+     * либо по входу), 1 вход + 1 любой топливный предмет на операцию.
+     */
+    private static String smeltItem(AtriaCompanionEntity c, String itemFilter, int count) {
+        if (itemFilter == null || itemFilter.isBlank()) {
+            return "ОШИБКА: укажи 'item' - часть имени того, что переплавить";
+        }
+        Level level = c.level;
+        boolean hasFurnace = false;
+        for (BlockPos p : BlockPos.betweenClosed(
+                c.blockPosition().offset(-3, -2, -3), c.blockPosition().offset(3, 2, 3))) {
+            if (level.getBlockState(p).is(Blocks.FURNACE)) {
+                hasFurnace = true;
+                break;
+            }
+        }
+        if (!hasFurnace) {
+            return "печки в 3 блоках нет - построй её из 8 булыжника (craft_item 'furnace' + place_block)";
+        }
+        var recipes = level.getRecipeManager().getAllRecipesFor(RecipeType.SMELTING);
+        Recipe<Container> chosen = null;
+        for (Recipe<Container> r : recipes) {
+            try {
+                ItemStack out = r.getResultItem();
+                if (out.isEmpty()) {
+                    continue;
+                }
+                String outId = Registry.ITEM.getKey(out.getItem()).getPath();
+                if (outId.contains(itemFilter.toLowerCase().strip())) {
+                    chosen = r;
+                    break;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (chosen == null) {
+            // пробуем по имени входа из инвентаря (напр. 'raw_iron')
+            outer:
+            for (ItemStack slot : c.getInventoryView()) {
+                if (slot.isEmpty()) {
+                    continue;
+                }
+                for (Recipe<Container> r : recipes) {
+                    try {
+                        if (!r.getIngredients().isEmpty()
+                                && r.getIngredients().get(0).test(slot)
+                                && Registry.ITEM.getKey(r.getResultItem().getItem()).getPath()
+                                        .contains(itemFilter.toLowerCase().strip())) {
+                            chosen = r;
+                            break outer;
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        }
+        if (chosen == null) {
+            return "рецепт переплавки для '" + itemFilter + "' не найден";
+        }
+        int done = 0;
+        for (int attempt = 0; attempt < count; attempt++) {
+            ItemStack inputSlot = ItemStack.EMPTY;
+            for (ItemStack slot : c.getInventoryView()) {
+                if (!slot.isEmpty() && chosen.getIngredients().get(0).test(slot)) {
+                    inputSlot = slot;
+                    break;
+                }
+            }
+            if (inputSlot.isEmpty()) {
+                break;
+            }
+            ItemStack fuelSlot = c.findMatching(AbstractFurnaceBlockEntity::isFuel);
+            if (fuelSlot.isEmpty()) {
+                break;
+            }
+            c.consumeOne(inputSlot);
+            c.consumeOne(fuelSlot);
+            ItemStack result = chosen.getResultItem().copy();
+            if (!c.addStack(result) && !result.isEmpty()) {
+                c.spawnAtLocation(result);
+            }
+            done++;
+        }
+        if (done == 0) {
+            return "не хватило входа или топлива; инвентарь: " + c.inventorySummary();
+        }
+        return "переплавил " + done + " x " + Registry.ITEM.getKey(chosen.getResultItem().getItem()).getPath()
+                + "; инвентарь: " + c.inventorySummary();
+    }
+
+    /** Сдать всё в сундук или забрать из сундука. Ближайший сундук в 4 блоках. */
+    private static String useChest(AtriaCompanionEntity c, String mode, String filter) {
+        Level level = c.level;
+        BlockPos chestPos = null;
+        for (BlockPos p : BlockPos.betweenClosed(
+                c.blockPosition().offset(-4, -2, -4), c.blockPosition().offset(4, 2, 4))) {
+            if (level.getBlockState(p).is(Blocks.CHEST)) {
+                chestPos = p.immutable();
+                break;
+            }
+        }
+        if (chestPos == null) {
+            return "сундука в 4 блоках нет";
+        }
+        BlockEntity be = level.getBlockEntity(chestPos);
+        if (!(be instanceof Container container)) {
+            return "это не сундук-контейнер";
+        }
+        String f = filter == null ? "" : filter.toLowerCase().strip();
+        int moved;
+        if ("withdraw".equals(mode)) {
+            moved = 0;
+            for (int i = 0; i < container.getContainerSize(); i++) {
+                ItemStack slot = container.getItem(i);
+                if (slot.isEmpty()) {
+                    continue;
+                }
+                if (!f.isEmpty() && !Registry.ITEM.getKey(slot.getItem()).getPath().contains(f)) {
+                    continue;
+                }
+                if (c.addStack(slot)) { // мутирует стек: остаток остаётся в сундуке
+                    container.setItem(i, ItemStack.EMPTY);
+                    moved++;
+                }
+            }
+            container.setChanged();
+            return "забрал из сундука " + moved + " видов предметов; инвентарь: " + c.inventorySummary();
+        }
+        // deposit
+        moved = 0;
+        for (int i = 0; i < c.getInventoryView().size(); i++) {
+            ItemStack slot = c.getInventoryView().get(i);
+            if (slot.isEmpty()) {
+                continue;
+            }
+            int deposited = depositStack(container, slot);
+            if (deposited > 0) {
+                moved++;
+                if (slot.getCount() == 0) {
+                    c.clearSlot(i);
+                }
+            }
+        }
+        container.setChanged();
+        return "сдал в сундук предметов из " + moved + " слотов; инвентарь: " + c.inventorySummary();
+    }
+
+    /** Вложить стек в контейнер (мутирует stack), возвращает сколько положено. */
+    private static int depositStack(Container container, ItemStack stack) {
+        int before = stack.getCount();
+        for (int i = 0; i < container.getContainerSize() && !stack.isEmpty(); i++) {
+            ItemStack slot = container.getItem(i);
+            if (!slot.isEmpty() && ItemStack.isSameItemSameTags(slot, stack)) {
+                int space = Math.min(slot.getMaxStackSize(), 64) - slot.getCount();
+                if (space > 0) {
+                    int move = Math.min(space, stack.getCount());
+                    slot.grow(move);
+                    stack.shrink(move);
+                }
+            }
+        }
+        for (int i = 0; i < container.getContainerSize() && !stack.isEmpty(); i++) {
+            if (container.getItem(i).isEmpty()) {
+                int move = Math.min(Math.min(stack.getMaxStackSize(), 64), stack.getCount());
+                container.setItem(i, stack.split(move));
+            }
+        }
+        return before - stack.getCount();
     }
 
     // ---- вспомогательное ----
