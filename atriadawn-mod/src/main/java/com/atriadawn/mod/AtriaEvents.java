@@ -73,5 +73,6 @@ public class AtriaEvents {
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         AtriaCommands.register(event.getDispatcher());
+        com.atriadawn.mod.agent.AtriaAgentCommands.register(event);
     }
 }

@@ -80,6 +80,20 @@ public final class AtriaConfig {
     /** true — писать в лог каждый триггер бота (диагностика ложных срабатываний). */
     public boolean logTriggers = false;
 
+    // ---- агент-компаньон ----
+    /** Включён ли агентный режим (/atriaagent, /atria summon). */
+    public boolean agentEnabled = true;
+    /** Максимум шагов (вызовов модели) на одну задачу. */
+    public int agentMaxIterations = 12;
+    /** Радиус (в блоках от владельца), в котором агенту разрешено действовать. */
+    public int agentActionRadius = 48;
+    /** Разрешено ли агенту ломать блоки. */
+    public boolean agentCanBreakBlocks = true;
+    /** Разрешено ли агенту ставить блоки. */
+    public boolean agentCanPlaceBlocks = true;
+    /** Таймаут всей задачи, секунд. */
+    public int agentTaskTimeoutSeconds = 300;
+
     private AtriaConfig() {
     }
 
@@ -151,6 +165,17 @@ public final class AtriaConfig {
         broadcastReplies = readBool(obj, "broadcastReplies", broadcastReplies);
         logTriggers = readBool(obj, "logTriggers", logTriggers);
 
+        agentEnabled = readBool(obj, "agentEnabled", agentEnabled);
+        agentMaxIterations = readInt(obj, "agentMaxIterations", agentMaxIterations);
+        agentActionRadius = readInt(obj, "agentActionRadius", agentActionRadius);
+        agentCanBreakBlocks = readBool(obj, "agentCanBreakBlocks", agentCanBreakBlocks);
+        agentCanPlaceBlocks = readBool(obj, "agentCanPlaceBlocks", agentCanPlaceBlocks);
+        agentTaskTimeoutSeconds = readInt(obj, "agentTaskTimeoutSeconds", agentTaskTimeoutSeconds);
+
+        agentMaxIterations = Math.max(1, Math.min(40, agentMaxIterations));
+        agentActionRadius = Math.max(8, Math.min(128, agentActionRadius));
+        agentTaskTimeoutSeconds = Math.max(30, Math.min(1800, agentTaskTimeoutSeconds));
+
         // sanity-ограничения
         maxTokens = Math.max(1, Math.min(65536, maxTokens));
         requestTimeoutSeconds = Math.max(10, Math.min(600, requestTimeoutSeconds));
@@ -182,6 +207,12 @@ public final class AtriaConfig {
             obj.addProperty("showTypingIndicator", showTypingIndicator);
             obj.addProperty("broadcastReplies", broadcastReplies);
             obj.addProperty("logTriggers", logTriggers);
+            obj.addProperty("agentEnabled", agentEnabled);
+            obj.addProperty("agentMaxIterations", agentMaxIterations);
+            obj.addProperty("agentActionRadius", agentActionRadius);
+            obj.addProperty("agentCanBreakBlocks", agentCanBreakBlocks);
+            obj.addProperty("agentCanPlaceBlocks", agentCanPlaceBlocks);
+            obj.addProperty("agentTaskTimeoutSeconds", agentTaskTimeoutSeconds);
             try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
                 Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
                 gson.toJson(obj, writer);

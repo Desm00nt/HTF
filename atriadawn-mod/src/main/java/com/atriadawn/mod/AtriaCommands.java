@@ -1,5 +1,8 @@
 package com.atriadawn.mod;
 
+import com.atriadawn.mod.agent.AtriaAgentCommands;
+import com.atriadawn.mod.agent.AtriaAgentManager;
+import com.atriadawn.mod.entity.AtriaCompanionEntity;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.ChatFormatting;
@@ -82,6 +85,25 @@ public final class AtriaCommands {
                             ctx.getSource().sendSuccess(Component.translatable(hasKey
                                     ? "atria.cmd_reload"
                                     : "atria.cmd_reload_nokey"), true);
+                            return 1;
+                        }))
+                // ВАЖНО: summon/remove — ДО greedy-аргумента message (приоритет литералов)
+                .then(Commands.literal("summon")
+                        .executes(ctx -> {
+                            ServerPlayer player = ctx.getSource().getPlayerOrException();
+                            AtriaAgentCommands.summonPublic(player);
+                            return 1;
+                        }))
+                .then(Commands.literal("remove")
+                        .executes(ctx -> {
+                            ServerPlayer player = ctx.getSource().getPlayerOrException();
+                            AtriaCompanionEntity companion = AtriaAgentManager.getCompanion(player.getUUID());
+                            if (companion == null) {
+                                player.sendSystemMessage(Component.translatable("atria.agent_none")
+                                        .withStyle(ChatFormatting.YELLOW));
+                                return 0;
+                            }
+                            companion.discard();
                             return 1;
                         }))
                 .then(Commands.literal("key")

@@ -26,5 +26,21 @@
     "atria.about_2": "How to ask: start a chat message with %s, or use /atria <message>.",
     "atria.about_3": "/atria reset - forget the dialog, /atria key <key> - set the API key (ops), /atria reload - re-read config/atriadawn.json (ops).",
     "atria.about_4": "Atria Dawn remembers the last %s messages of your dialogue.",
-    "atria.about_noperm": "Note: /atria key and /atria reload are for server operators; in a single-player world its owner can use them too (cheats not required)."
+    "atria.about_noperm": "Note: /atria key and /atria reload are for server operators; in a single-player world its owner can use them too (cheats not required).",
+    "entity.atriadawn.atria_companion": "Atria Dawn (companion)",
+    "atria.agent_none": "You have no companion. Spawn one first: /atria summon",
+    "atria.agent_spawned": "Atria Dawn has taken a body! Right-click her to toggle following; give tasks via /atriaagent <task>.",
+    "atria.agent_exists": "Your companion already exists.",
+    "atria.agent_running": "Atria is already busy with a task. Interrupt it: /atriaagent stop",
+    "atria.agent_started": "Atria accepted the task and started acting...",
+    "atria.agent_stopped": "Task interrupted.",
+    "atria.agent_finished": "Task complete: %s",
+    "atria.agent_failed_limit": "The step limit is exhausted - the task is not finished. Try breaking it into smaller parts.",
+    "atria.agent_failed_timeout": "Out of time - the task is interrupted.",
+    "atria.agent_disabled": "The agent mode is disabled in the config (agentEnabled).",
+    "atria.agent_empty_task": "Formulate a task, for example: /atriaagent mine 10 cobblestone and bring it to me",
+    "atria.agent_dead": "Atria's body was destroyed... Spawn a new one: /atria summon",
+    "atria.agent_cmd_hint": "Usage: /atriaagent <task>, for example 'mine 5 oak logs'. /atriaagent stop - interrupt.",
+    "atria.agent_follow_on": "Atria will follow you.",
+    "atria.agent_follow_off": "Atria will stay in place."
 }

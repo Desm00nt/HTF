@@ -38,6 +38,8 @@ public class AtriaDawnMod {
     public AtriaDawnMod() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
+        com.atriadawn.mod.registry.AtriaRegistry.ENTITY_TYPES.register(modEventBus);
+
         modEventBus.addListener(this::commonSetup);
 
         MinecraftForge.EVENT_BUS.register(new AtriaEvents());
